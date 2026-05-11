@@ -36,8 +36,18 @@ export const api = {
     return request("/api/users/me/resume", { method: "POST", body });
   },
   jobs: (params) => request(`/api/jobs/?${new URLSearchParams(params)}`),
+  myJobs: () => request("/api/jobs/mine"),
+  createJob: (payload) => request("/api/jobs/", { method: "POST", body: JSON.stringify(payload) }),
+  deleteJob: (id) => request(`/api/jobs/${id}`, { method: "DELETE" }),
+  importProviderJobs: (provider, payload) =>
+    request(`/api/ingestion/providers/${provider}`, { method: "POST", body: JSON.stringify(payload) }),
+  importRolePack: (payload) =>
+    request("/api/ingestion/role-pack", { method: "POST", body: JSON.stringify(payload) }),
   saveJob: (id) => request(`/api/saved-jobs/${id}`, { method: "POST" }),
   apply: (payload) => request("/api/applications/", { method: "POST", body: JSON.stringify(payload) }),
+  updateApplication: (id, payload) =>
+    request(`/api/applications/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  employerApplications: () => request("/api/applications/employer"),
   savedJobs: () => request("/api/saved-jobs/"),
   applications: () => request("/api/applications/"),
   dashboard: () => request("/api/dashboard/summary"),
