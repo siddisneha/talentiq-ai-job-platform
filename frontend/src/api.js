@@ -57,7 +57,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ resume_text: resumeText }),
     }),
-  analytics: () => request("/api/analytics/summary"),
+  analytics: () => request("/api/analytics/summary"), // this is calling the backend get/api/analytics/summary then the func in that runs 
   alerts: () => request("/api/alerts/"),
   createAlert: (payload) => request("/api/alerts/", { method: "POST", body: JSON.stringify(payload) }),
   alertMatches: (id) => request(`/api/alerts/${id}/matches`),

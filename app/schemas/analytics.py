@@ -24,3 +24,5 @@ class AnalyticsSummary(BaseModel):
     top_skills: list[NamedCount]
     salary_ranges: SalaryRangeInsight
     application_statuses: list[NamedCount]
+    user_skills: list[str]
+    missing_skills: list[str]

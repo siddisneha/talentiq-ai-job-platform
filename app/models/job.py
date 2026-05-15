@@ -24,6 +24,7 @@ class Job(Base):
     source_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("job_sources.id"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     posted_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)

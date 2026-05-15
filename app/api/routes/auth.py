@@ -9,13 +9,16 @@ from app.core.security import create_access_token, get_password_hash, verify_pas
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.auth import Token
-from app.schemas.user import UserCreate, UserRead
+from app.schemas.user import PUBLIC_USER_ROLES, UserCreate, UserRead
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
+    if user_in.role not in PUBLIC_USER_ROLES:
+        raise HTTPException(status_code=400, detail="Invalid user role")
+
     existing_user = db.query(User).filter(User.email == user_in.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email is already registered")
@@ -24,6 +27,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         full_name=user_in.full_name,
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password),
+        role=user_in.role,
         phone=user_in.phone,
         headline=user_in.headline,
         summary=user_in.summary,
@@ -32,6 +36,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         education=user_in.education,
         current_location=user_in.current_location,
         preferred_location=user_in.preferred_location,
+        preferred_branch=user_in.preferred_branch,
         preferred_role=user_in.preferred_role,
         preferred_job_type=user_in.preferred_job_type,
         expected_salary=user_in.expected_salary,

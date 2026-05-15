@@ -3,10 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.schemas.job import JobRead
+from app.schemas.user import UserRead
 
 
 class ApplicationCreate(BaseModel):
     job_id: int
+    status: str = "applied"
     cover_letter: str | None = None
     resume_url: str | None = None
 
@@ -29,3 +31,6 @@ class ApplicationRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
+class EmployerApplicationRead(ApplicationRead):
+    user: UserRead

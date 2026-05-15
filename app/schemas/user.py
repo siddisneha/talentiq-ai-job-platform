@@ -2,10 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr
 
+USER_ROLES = {"candidate", "employer", "admin"}
+PUBLIC_USER_ROLES = {"candidate", "employer"}
+
 
 class UserBase(BaseModel):
     full_name: str
     email: EmailStr
+    role: str = "candidate"
     phone: str | None = None
     headline: str | None = None
     summary: str | None = None
@@ -14,6 +18,7 @@ class UserBase(BaseModel):
     education: str | None = None
     current_location: str | None = None
     preferred_location: str | None = None
+    preferred_branch: str | None = None
     preferred_role: str | None = None
     preferred_job_type: str | None = None
     expected_salary: str | None = None
@@ -37,6 +42,7 @@ class UserUpdate(BaseModel):
     education: str | None = None
     current_location: str | None = None
     preferred_location: str | None = None
+    preferred_branch: str | None = None
     preferred_role: str | None = None
     preferred_job_type: str | None = None
     expected_salary: str | None = None

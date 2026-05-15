@@ -10,6 +10,14 @@ from app.schemas.job_source import JobSourceCreate, JobSourceRead, JobSourceUpda
 router = APIRouter()
 
 
+def ensure_can_manage_sources(user: User) -> None:
+    if user.role not in {"employer", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only employer or admin accounts can manage job sources",
+        )
+
+
 @router.get("/", response_model=list[JobSourceRead])
 def list_sources(
     db: Session = Depends(get_db),
@@ -24,6 +32,7 @@ def create_source(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_can_manage_sources(current_user)
     existing = db.query(JobSource).filter(JobSource.name == source_in.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Job source already exists")
@@ -42,6 +51,7 @@ def update_source(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_can_manage_sources(current_user)
     source = db.get(JobSource, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Job source not found")
@@ -61,6 +71,7 @@ def deactivate_source(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_can_manage_sources(current_user)
     source = db.get(JobSource, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Job source not found")

@@ -10,7 +10,7 @@ from app.models.job_alert import JobAlert
 from app.models.saved_job import SavedJob
 from app.models.user import User
 from app.schemas.dashboard import DashboardSummary
-from app.services.recommendations import score_job_for_user
+from app.services.recommendations import focused_jobs_for_user, score_job_for_user
 
 router = APIRouter()
 
@@ -34,7 +34,8 @@ def dashboard_summary(
         db.query(ActivityLog).filter(ActivityLog.user_id == current_user.id).count()
     )
 
-    jobs = db.query(Job).filter(Job.is_active.is_(True)).all()
+    jobs = db.query(Job).filter(Job.is_active.is_(True)).order_by(Job.created_at.desc()).limit(250).all()
+    jobs = focused_jobs_for_user(jobs, current_user)[:80]
     scored_jobs = sorted(
         jobs,
         key=lambda job: score_job_for_user(job, current_user)[0],

@@ -16,6 +16,7 @@ class JobBase(BaseModel):
     external_id: str | None = None
     source_name: str | None = None
     source_id: int | None = None
+    expires_at: datetime | None = None
 
 
 class JobCreate(JobBase):
@@ -36,11 +37,13 @@ class JobUpdate(BaseModel):
     source_name: str | None = None
     source_id: int | None = None
     is_active: bool | None = None
+    expires_at: datetime | None = None
 
 
 class JobRead(JobBase):
     id: int
     is_active: bool
+    expires_at: datetime | None
     posted_by_id: int | None
     created_at: datetime
 

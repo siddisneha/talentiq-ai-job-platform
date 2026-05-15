@@ -24,7 +24,11 @@ def update_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    for field, value in user_in.model_dump(exclude_unset=True).items():
+    data = user_in.model_dump(exclude_unset=True)
+    if data.get("preferred_branch"):
+        data["preferred_branch"] = data["preferred_branch"].strip().lower()
+
+    for field, value in data.items():
         setattr(current_user, field, value)
 
     db.add(current_user)

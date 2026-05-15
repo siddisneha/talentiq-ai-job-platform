@@ -10,7 +10,7 @@ from app.schemas.recommendation import (
     ResumeMatchRequest,
     ResumeMatchResponse,
 )
-from app.services.recommendations import extract_known_skills, score_job_for_user
+from app.services.recommendations import extract_known_skills, focused_jobs_for_user, score_job_for_user
 
 router = APIRouter()
 
@@ -21,7 +21,8 @@ def recommended_jobs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    jobs = db.query(Job).filter(Job.is_active.is_(True)).all()
+    jobs = db.query(Job).filter(Job.is_active.is_(True)).order_by(Job.created_at.desc()).limit(300).all()
+    jobs = focused_jobs_for_user(jobs, current_user)[:120]
     recommendations = []
     for job in jobs:
         score, matched_skills, reasons = score_job_for_user(job, current_user)
@@ -46,7 +47,8 @@ def resume_match(
 ):
     extracted_skills = extract_known_skills(payload.resume_text)
     resume_skills = set(extracted_skills)
-    jobs = db.query(Job).filter(Job.is_active.is_(True)).all()
+    jobs = db.query(Job).filter(Job.is_active.is_(True)).order_by(Job.created_at.desc()).limit(300).all()
+    jobs = focused_jobs_for_user(jobs, current_user)[:120]
     recommendations = []
     for job in jobs:
         score, matched_skills, reasons = score_job_for_user(job, current_user, resume_skills)

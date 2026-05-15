@@ -51,6 +51,12 @@ textarea {
   width: 100%;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: #7d8986;
+  font-weight: 500;
+}
+
 select {
   appearance: none;
 }
@@ -327,6 +333,56 @@ h2 {
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.75fr);
 }
 
+.analytics-workspace,
+.recommendations-workspace {
+  display: grid;
+  gap: 24px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-box {
+  height: 300px;
+}
+
+.recommendation-card {
+  background: #f8faf9;
+  border: 1px solid #dde7e3;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.recommendation-card h4 {
+  margin: 0;
+}
+
+.recommendation-card p {
+  color: #61716c;
+  margin: 0;
+}
+
+.skill-gap-card {
+  display: grid;
+  gap: 14px;
+}
+
+.skill-gap-section {
+  background: #f8faf9;
+  border: 1px solid #dde7e3;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.skill-gap-section h4 {
+  margin-bottom: 8px;
+}
+
 .jobs-workspace {
   display: grid;
   gap: 24px;
@@ -582,6 +638,19 @@ h2 {
   height: 100%;
 }
 
+.status-chart {
+  background: linear-gradient(180deg, #fbfdfc 0%, #ffffff 100%);
+  border: 1px solid #eef3f1;
+  border-radius: 8px;
+  min-height: 300px;
+  padding: 8px 8px 0;
+  width: 100%;
+}
+
+.recharts-default-legend {
+  font-weight: 700;
+}
+
 .resume-result {
   display: grid;
   gap: 12px;
@@ -627,8 +696,26 @@ h2 {
   grid-column: 1 / -1;
 }
 
-.profile-form button {
+.profile-save-bar {
+  align-items: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), #fff 35%);
+  bottom: 0;
+  display: flex;
+  gap: 12px;
   grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding-top: 10px;
+  position: sticky;
+  z-index: 2;
+}
+
+.profile-save-bar span {
+  background: #e8f5ed;
+  border: 1px solid #a8d4bb;
+  border-radius: 8px;
+  color: #0f6b5b;
+  font-weight: 800;
+  padding: 8px 12px;
 }
 
 .job-post-form button {
@@ -776,6 +863,7 @@ h2 {
   .app-shell,
   .alerts-grid,
   .dashboard-grid,
+  .detail-grid,
   .post-jobs-workspace,
   .profile-workspace,
   .split,
@@ -811,6 +899,7 @@ h2 {
   .job-post-form,
   .profile-form,
   .snapshot-grid,
+  .detail-grid,
   .job-row,
   .applicant-row,
   .posted-job-row,

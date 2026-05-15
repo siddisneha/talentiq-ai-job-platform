@@ -18,6 +18,18 @@ import {
 } from "lucide-react";
 import { api } from "./api";
 import "./styles.css";
+import{
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+}from "recharts"
 
 const emptyFilters = { search: "", country: "", location: "", skill: "", job_type: "", salary_min: "" };
 const countryOptions = [
@@ -39,6 +51,111 @@ const applicationStatuses = [
   { value: "rejected", label: "Rejected" },
   { value: "withdrawn", label: "Withdrawn" },
 ];
+const statusPalette = {
+  applied: "#2563eb",
+  screening: "#0f766e",
+  interview: "#7c3aed",
+  offer: "#15803d",
+  rejected: "#b42318",
+  withdrawn: "#64748b",
+  unknown: "#94a3b8",
+};
+const statusLabels = Object.fromEntries(applicationStatuses.map((status) => [status.value, status.label]));
+const branchOptions = [
+  {
+    value: "data_ai",
+    label: "Data / AI",
+    roles: [
+      "Data Analyst",
+      "Data Scientist",
+      "Business Analyst",
+      "BI Analyst",
+      "Machine Learning Engineer",
+      "AI Engineer",
+      "Data Engineer",
+    ],
+  },
+  {
+    value: "cse_it",
+    label: "CSE / IT",
+    roles: [
+      "Software Engineer",
+      "Python Developer",
+      "Backend Developer",
+      "Frontend Developer",
+      "Full Stack Developer",
+      "DevOps Engineer",
+      "Cloud Engineer",
+      "QA Engineer",
+      "Cybersecurity Analyst",
+    ],
+  },
+  {
+    value: "ece",
+    label: "ECE",
+    roles: [
+      "Embedded Systems Engineer",
+      "VLSI Engineer",
+      "Electronics Engineer",
+      "Hardware Design Engineer",
+      "IoT Engineer",
+      "Signal Processing Engineer",
+      "Telecommunications Engineer",
+      "RF Engineer",
+    ],
+  },
+  {
+    value: "eee",
+    label: "EEE",
+    roles: [
+      "Electrical Engineer",
+      "Power Systems Engineer",
+      "Control Systems Engineer",
+      "PLC SCADA Engineer",
+      "Renewable Energy Engineer",
+      "Electrical Design Engineer",
+      "Maintenance Engineer",
+      "Automation Engineer",
+    ],
+  },
+  {
+    value: "mechanical",
+    label: "Mechanical",
+    roles: [
+      "Mechanical Engineer",
+      "Design Engineer",
+      "CAD Engineer",
+      "Manufacturing Engineer",
+      "Production Engineer",
+      "Quality Engineer",
+      "Maintenance Engineer",
+    ],
+  },
+  {
+    value: "civil",
+    label: "Civil",
+    roles: [
+      "Civil Engineer",
+      "Site Engineer",
+      "Structural Engineer",
+      "Construction Project Engineer",
+      "Quantity Surveyor",
+      "Planning Engineer",
+    ],
+  },
+  {
+    value: "business",
+    label: "Business / Management",
+    roles: [
+      "Business Analyst",
+      "Product Manager",
+      "Project Coordinator",
+      "Operations Analyst",
+      "Marketing Analyst",
+      "HR Analyst",
+    ],
+  },
+];
 const roleOptions = [
   "Data Analyst",
   "Data Scientist",
@@ -51,6 +168,11 @@ const roleOptions = [
   "Cloud DevOps Engineer",
   "BI Analyst",
 ];
+const allRoleOptions = [...new Set([...roleOptions, ...branchOptions.flatMap((branch) => branch.roles)])];
+
+function branchLabel(value) {
+  return branchOptions.find((branch) => branch.value === value)?.label || value;
+}
 
 function canManageJobs(user) {
   return user?.role === "employer" || user?.role === "admin";
@@ -93,23 +215,79 @@ function App() {
   const [resumeResult, setResumeResult] = useState(null);
   const [applyTarget, setApplyTarget] = useState(null);
   const [appliedJob, setAppliedJob] = useState(null);
+  const [profileSaved, setProfileSaved] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [message, setMessage] = useState("");
+  const appliedJobIds = useMemo(
+    () => new Set(applications.map((application) => application.job_id)),
+    [applications],
+  );
+  const applicationStatusData = useMemo(() => analytics?.application_statuses || [], [analytics]);
+  const topSkillData = useMemo(() => analytics?.top_skills || [], [analytics]);
+  const topRoleData = useMemo(() => analytics?.top_roles || [], [analytics]);
+  const topLocationData = useMemo(() => analytics?.top_locations || [], [analytics]);
+  const applicationPerJobData = useMemo(() => {
+    const counts = new Map();
+    applications.forEach((application) => {
+      const title = application.job?.title || "Unknown job";
+      counts.set(title, (counts.get(title) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [applications]);
+  const engagementData = useMemo(() => {
+    const activity = dashboard?.recent_activity_count || 0;
+    const alertsCount = dashboard?.alerts_count || 0;
+    const savedCount = dashboard?.saved_jobs_count || 0;
+    return [
+      { name: "Activity", count: activity },
+      { name: "Alerts", count: alertsCount },
+      { name: "Saved", count: savedCount },
+    ];
+  }, [dashboard]);
+  const availableRecommendations = recommendations.filter((item) => !appliedJobIds.has(item.job.id));
+  const availableJobs = jobs.filter((job) => !appliedJobIds.has(job.id));
+  const availableSavedJobs = savedJobs.filter((item) => !appliedJobIds.has(item.job.id));
 
   async function loadPrivateData() {
-    const [me, dash, recs, apps, saved, stats, userAlerts] = await Promise.all([
-      api.me(),
-      api.dashboard(),
-      api.recommendations(),
-      api.applications(),
-      api.savedJobs(),
-      api.analytics(),
-      api.alerts(),
+    let me;
+    try {
+      me = await api.me();
+    } catch (error) {
+      localStorage.removeItem("job_portal_token");
+      setToken(null);
+      setUser(null);
+      setMessage("Session expired. Please login again.");
+      return;
+    }
+
+    setUser(me);
+
+    const safe = async (request, fallback) => {
+      try {
+        return await request();
+      } catch (error) {
+        console.warn(error);
+        return fallback;
+      }
+    };
+
+    const [dash, recs, apps, saved, stats, userAlerts] = await Promise.all([
+      safe(api.dashboard, null),
+      safe(api.recommendations, []),
+      safe(api.applications, []),
+      safe(api.savedJobs, []),
+      safe(api.analytics, null),
+      safe(api.alerts, []),
     ]);
     const [postedJobs, applicants] = canManageJobs(me)
-      ? await Promise.all([api.myJobs(), api.employerApplications()])
+      ? await Promise.all([
+          safe(api.myJobs, []),
+          safe(api.employerApplications, []),
+        ])
       : [[], []];
-    setUser(me);
     setMyJobs(postedJobs);
     setEmployerApplications(applicants);
     setDashboard(dash);
@@ -128,6 +306,9 @@ function App() {
     if (nextFilters.country && !clean.location) {
       clean.location = nextFilters.country;
     }
+    if (isCandidate(user) && user?.preferred_branch && !clean.search && !clean.skill) {
+      clean.branch = user.preferred_branch;
+    }
     setJobs(await api.jobs(clean));
   }
 
@@ -137,6 +318,12 @@ function App() {
       loadPrivateData().catch((error) => setMessage(error.message));
     }
   }, [token]);
+
+  useEffect(() => {
+    if (token && user) {
+      loadJobs();
+    }
+  }, [user?.preferred_branch, user?.preferred_role]);
 
   async function handleLogin(email, password) {
     const data = await api.login(email, password);
@@ -164,7 +351,7 @@ function App() {
       [...new FormData(event.currentTarget).entries()].filter(([, value]) => String(value).trim() !== ""),
     );
     await api.apply({ ...payload, job_id: job.id, resume_url: user?.resume_url || undefined });
-    setMessage("Applied successfully");
+    setMessage(isPortalJob(job) ? "Applied successfully" : "Marked as applied");
     setApplyTarget(null);
     setAppliedJob(job);
     await loadPrivateData();
@@ -223,8 +410,13 @@ function App() {
       .split(",")
       .map((country) => country.trim())
       .filter(Boolean);
+    const branches = String(form.get("branches") || "")
+      .split(",")
+      .map((branch) => branch.trim())
+      .filter(Boolean);
     const result = await api.importRolePack({
       roles,
+      branches,
       countries,
       limit_per_search: Number(form.get("limit_per_search") || 50),
       include_external_key_providers: true,
@@ -259,9 +451,11 @@ function App() {
     const payload = Object.fromEntries(
       [...new FormData(event.currentTarget).entries()].filter(([, value]) => String(value).trim() !== ""),
     );
+    if (payload.preferred_branch) payload.preferred_branch = String(payload.preferred_branch).toLowerCase();
     const updated = await api.updateMe(payload);
     setUser(updated);
-    setMessage("Profile updated");
+    setProfileSaved(true);
+    setMessage("Profile saved successfully");
     await loadPrivateData();
   }
 
@@ -300,6 +494,7 @@ function App() {
         </div>
         <nav>
           <button className={activeView === "dashboard" ? "active-nav" : ""} onClick={() => setActiveView("dashboard")}><ChartColumn size={18} /> Dashboard</button>
+          <button className={activeView === "analytics" ? "active-nav" : ""} onClick={() => setActiveView("analytics")}><ChartColumn size={18} /> Analytics</button>
           <button className={activeView === "jobs" ? "active-nav" : ""} onClick={() => setActiveView("jobs")}><Search size={18} /> Jobs</button>
           {canManageJobs(user) && <button className={activeView === "post-jobs" ? "active-nav" : ""} onClick={() => setActiveView("post-jobs")}><PlusCircle size={18} /> Post Jobs</button>}
           {isCandidate(user) && <button className={activeView === "tracker" ? "active-nav" : ""} onClick={() => setActiveView("tracker")}><FileText size={18} /> Tracker</button>}
@@ -321,16 +516,17 @@ function App() {
         {activeView === "dashboard" && (
           <>
             <section className="metric-grid">
-              <Metric label={isCandidate(user) ? "Saved jobs" : "Posted jobs"} value={isCandidate(user) ? dashboard?.saved_jobs_count || 0 : myJobs.length} />
-              <Metric label={isCandidate(user) ? "Applications" : "Active posts"} value={isCandidate(user) ? dashboard?.applications_count || 0 : myJobs.filter((job) => job.is_active).length} />
+              <Metric label="Total applications" value={dashboard?.applications_count || 0} />
+              <Metric label="Saved jobs" value={dashboard?.saved_jobs_count || 0} />
+              <Metric label="Alerts" value={dashboard?.alerts_count || 0} />
               <Metric label="Active jobs" value={dashboard?.active_jobs_count || 0} />
-              <Metric label={isCandidate(user) ? "Alerts" : "Account type"} value={isCandidate(user) ? dashboard?.alerts_count || 0 : user?.role || "employer"} />
             </section>
 
             <section className="dashboard-grid">
               <Panel title="Career Snapshot" icon={<UserRound size={20} />}>
                 <div className="snapshot-grid">
                   <Snapshot label={isCandidate(user) ? "Profile role" : "Hiring focus"} value={user?.preferred_role || "Not set"} />
+                  <Snapshot label="Branch / domain" value={user?.preferred_branch ? branchLabel(user.preferred_branch) : "Not set"} />
                   <Snapshot label="Account type" value={user?.role || "candidate"} />
                   <Snapshot label="Experience" value={user?.experience_years || "Not set"} />
                   <Snapshot label="Current location" value={user?.current_location || "Not set"} />
@@ -338,19 +534,106 @@ function App() {
                   <Snapshot label="Resume" value={user?.resume_url ? "Uploaded" : "Not uploaded"} />
                 </div>
               </Panel>
-              <Panel title="Market Insights" icon={<ChartColumn size={20} />}>
-                <div className="bar-list">
-                  {(analytics?.top_skills || []).map((skill) => (
-                    <div key={skill.name} className="bar-row">
-                      <span>{skill.name}</span>
-                      <div><i style={{ width: `${(skill.count / topSkillMax) * 100}%` }} /></div>
-                      <b>{skill.count}</b>
-                    </div>
-                  ))}
+              <Panel title="Skill Gap Analysis" icon={<ChartColumn size={20} />}>
+                <div className="skill-gap-card">
+                  <div className="skill-gap-section">
+                    <h4>Your Skills</h4>
+                    <p>{(analytics?.user_skills || []).join(", ") || "No skills added"}</p>
+                  </div>
+                  <div className="skill-gap-section">
+                    <h4>Recommended Skills to Learn</h4>
+                    <p>{(analytics?.missing_skills || []).join(", ") || "You are up to date"}</p>
+                  </div>
                 </div>
               </Panel>
             </section>
           </>
+        )}
+
+        {activeView === "analytics" && (
+          <section className="analytics-workspace">
+            <div className="detail-grid">
+              <Panel title="Applications per Job" icon={<ChartColumn size={20} />}>
+                <div className="chart-box">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={applicationPerJobData} layout="vertical">
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={140} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#1f5590" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+              <Panel title="Skill Trends" icon={<ChartColumn size={20} />}>
+                <div className="chart-box">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topSkillData}>
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#0f6b5b" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+              <Panel title="Engagement Metrics" icon={<ChartColumn size={20} />}>
+                <div className="chart-box">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={engagementData}>
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#de7a22" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+              <Panel title="Application Status Overview" icon={<ChartColumn size={20}/>}>
+                <div className="status-chart">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={applicationStatusData}
+                        dataKey="count"
+                        nameKey="name"
+                        outerRadius={100}
+                        innerRadius={58}
+                        paddingAngle={3}
+                        label={({ name, percent }) => `${statusLabels[name] || name} ${Math.round(percent * 100)}%`}
+                      >
+                        {(analytics?.application_statuses || []).map((entry) => (
+                          <Cell
+                            key={entry.name}
+                            fill={statusPalette[entry.name] || statusPalette.unknown}
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value, name) => [value, statusLabels[name] || name]}
+                        contentStyle={{
+                          border: "1px solid #dbe5e1",
+                          borderRadius: 8,
+                          boxShadow: "0 12px 28px rgba(23, 32, 38, 0.12)",
+                        }}
+                      />
+                      <Legend formatter={(value) => statusLabels[value] || value} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </Panel>
+              <Panel title="Job Demand Trends" icon={<ChartColumn size={20} />}>
+                <div className="summary-grid">
+                  <Snapshot label="Top role" value={topRoleData?.[0]?.name || "N/A"} />
+                  <Snapshot label="Top location" value={topLocationData?.[0]?.name || "N/A"} />
+                  <Snapshot label="Salary range" value={analytics?.salary_ranges?.minimum && analytics?.salary_ranges?.maximum ? `${analytics.salary_ranges.minimum} - ${analytics.salary_ranges.maximum}` : "Not available"} />
+                  <Snapshot label="Market skills" value={(analytics?.top_skills || []).slice(0, 3).map((skill) => skill.name).join(", ") || "No trend data"} />
+                </div>
+              </Panel>
+            </div>
+          </section>
         )}
 
         {activeView === "jobs" && (
@@ -358,7 +641,7 @@ function App() {
             {isCandidate(user) && (
               <Panel title="Recommended Jobs" icon={<Sparkles size={20} />}>
                 <div className="list-stack">
-                  {recommendations.slice(0, 5).map((item) => (
+                  {availableRecommendations.slice(0, 5).map((item) => (
                     <JobRow key={item.job.id} job={item.job} meta={`${item.score}% match`} onSave={saveJob} onApply={setApplyTarget} canApply={isCandidate(user)} />
                   ))}
                 </div>
@@ -391,7 +674,7 @@ function App() {
                 <button type="submit">Search</button>
               </form>
               <div className="job-grid">
-                {jobs.map((job) => (
+                {availableJobs.map((job) => (
                   <JobCard
                     key={job.id}
                     job={job}
@@ -420,7 +703,7 @@ function App() {
             </Panel>
             <Panel title="Saved Jobs" icon={<Star size={20} />}>
               <div className="list-stack">
-                {savedJobs.map((item) => <JobRow key={item.id} job={item.job} meta="Saved" onApply={setApplyTarget} canApply={isCandidate(user)} />)}
+                {availableSavedJobs.map((item) => <JobRow key={item.id} job={item.job} meta="Saved" onApply={setApplyTarget} canApply={isCandidate(user)} />)}
               </div>
             </Panel>
           </section>
@@ -462,7 +745,8 @@ function App() {
             </Panel>
             <Panel title="Import Real Jobs" icon={<Sparkles size={20} />}>
               <form className="stack-form import-pack-form" onSubmit={importRolePack}>
-                <input name="roles" defaultValue="Data Analyst, Data Scientist, Software Engineer" />
+                <input name="branches" defaultValue="data_ai, cse_it, ece, eee" />
+                <input name="roles" defaultValue="" placeholder="Extra roles, optional" />
                 <input name="countries" defaultValue="India, Remote" />
                 <input name="limit_per_search" type="number" min="1" max="100" defaultValue="50" />
                 <button type="submit">Import Role Pack</button>
@@ -533,18 +817,27 @@ function App() {
                 <label className="wide-field">Headline<input name="headline" defaultValue={user?.headline || ""} placeholder="Backend Developer | FastAPI | React" /></label>
                 <label className="wide-field">Professional summary<textarea name="summary" defaultValue={user?.summary || ""} placeholder="Short profile summary, achievements, or career objective" /></label>
                 <label className="wide-field">Skills<input name="skills" defaultValue={user?.skills || ""} placeholder="Python, FastAPI, React, SQL" /></label>
-                <label>Experience<input name="experience_years" defaultValue={user?.experience_years || ""} placeholder="2 years" /></label>
-                <label>Current location<input name="current_location" defaultValue={user?.current_location || ""} placeholder="Bengaluru" /></label>
+                <label>Experience<input name="experience_years" defaultValue={user?.experience_years || ""} placeholder="e.g. 2 years" /></label>
+                <label>Current location<input name="current_location" defaultValue={user?.current_location || ""} placeholder="e.g. Bengaluru" /></label>
+                <label>Branch / domain<select name="preferred_branch" defaultValue={user?.preferred_branch || ""}>
+                  <option value="">Choose branch</option>
+                  {branchOptions.map((branch) => (
+                    <option key={branch.value} value={branch.value}>{branch.label}</option>
+                  ))}
+                </select></label>
                 <label>Preferred role<input name="preferred_role" list="role-options" defaultValue={user?.preferred_role || ""} placeholder="Data Analyst" /></label>
                 <label>Preferred location<input name="preferred_location" defaultValue={user?.preferred_location || ""} placeholder="Remote, Bengaluru" /></label>
                 <label>Preferred job type<input name="preferred_job_type" defaultValue={user?.preferred_job_type || ""} placeholder="Full-time, Internship" /></label>
-                <label>Expected salary<input name="expected_salary" defaultValue={user?.expected_salary || ""} placeholder="8 LPA" /></label>
-                <label>Notice period<input name="notice_period" defaultValue={user?.notice_period || ""} placeholder="Immediate, 30 days" /></label>
+                <label>Expected salary<input name="expected_salary" defaultValue={user?.expected_salary || ""} placeholder="e.g. 8 LPA" /></label>
+                <label>Notice period<input name="notice_period" defaultValue={user?.notice_period || ""} placeholder="e.g. Immediate, 30 days" /></label>
                 <label>LinkedIn<input name="linkedin_url" defaultValue={user?.linkedin_url || ""} placeholder="https://linkedin.com/in/..." /></label>
                 <label>GitHub<input name="github_url" defaultValue={user?.github_url || ""} placeholder="https://github.com/..." /></label>
                 <label className="wide-field">Portfolio<input name="portfolio_url" defaultValue={user?.portfolio_url || ""} placeholder="https://your-portfolio.com" /></label>
                 <label className="wide-field">Education<textarea name="education" defaultValue={user?.education || ""} placeholder="Degree, institution, graduation year, certifications" /></label>
-                <button type="submit">Save Profile</button>
+                <div className="profile-save-bar">
+                  <button type="submit">Save Profile</button>
+                  {message === "Profile saved successfully" && <span>Saved</span>}
+                </div>
               </form>
             </Panel>
             <section className="profile-side">
@@ -593,23 +886,23 @@ function App() {
                 <span className="helper-text">
                   {isPortalJob(applyTarget)
                     ? "Your profile, resume, and cover note will be sent to this employer inside the portal."
-                    : "Open the original posting to apply with the company. Your uploaded resume will be attached to this portal application entry."}
+                    : "Open the original posting, apply on the company site, then return here and mark it as applied."}
                 </span>
               ) : (
                 <span className="helper-text">
                   {isPortalJob(applyTarget)
                     ? "Your profile and cover note will be sent to this employer. Upload a resume from Profile to include it."
-                    : "Open the original posting to apply with the company. You can upload a resume from Profile later."}
+                    : "Open the original posting, apply on the company site, then return here and mark it as applied."}
                 </span>
               )}
               <div className="dialog-actions">
-                {!isSampleJob(applyTarget) && (
+                {!isPortalJob(applyTarget) && !isSampleJob(applyTarget) && (
                   <a className="external-job-link" href={applyTarget.source_url} target="_blank" rel="noreferrer">
                     <ExternalLink size={16} /> Open posting
                   </a>
                 )}
                 <button type="button" className="secondary-button" onClick={() => setApplyTarget(null)}>Cancel</button>
-                <button type="submit">Apply</button>
+                <button type="submit">{isPortalJob(applyTarget) ? "Apply" : "Mark as applied"}</button>
               </div>
             </form>
           </section>
@@ -619,8 +912,21 @@ function App() {
         <div className="modal-backdrop" role="presentation" onClick={() => setAppliedJob(null)}>
           <section className="success-dialog" role="dialog" aria-modal="true" aria-labelledby="applied-title" onClick={(event) => event.stopPropagation()}>
             <h2 id="applied-title"><FileText size={20} /> Applied</h2>
-            <p>Your application for {appliedJob.title} has been submitted.</p>
+            <p>
+              {isPortalJob(appliedJob)
+                ? `Your application for ${appliedJob.title} has been submitted.`
+                : `${appliedJob.title} was moved to your application tracker.`}
+            </p>
             <button onClick={() => setAppliedJob(null)}>Done</button>
+          </section>
+        </div>
+      )}
+      {profileSaved && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setProfileSaved(false)}>
+          <section className="success-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-saved-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="profile-saved-title"><UserRound size={20} /> Profile saved</h2>
+            <p>Your profile details were saved and the dashboard has been refreshed.</p>
+            <button onClick={() => setProfileSaved(false)}>Done</button>
           </section>
         </div>
       )}
@@ -631,6 +937,7 @@ function App() {
 function viewTitle(activeView, user) {
   const titles = {
     dashboard: `${user?.full_name || "Your"} Dashboard`,
+    analytics: "Analytics",
     jobs: "Job Search",
     "post-jobs": "Employer Job Posting",
     tracker: "Applications & Saved Jobs",
@@ -690,6 +997,12 @@ function AuthScreen({ onLogin, onRegister, message, setMessage }) {
             <>
               <input name="skills" placeholder="Skills, comma separated" />
               <input name="preferred_location" placeholder="Preferred location" />
+              <select name="preferred_branch" defaultValue="">
+                <option value="">Choose branch/domain</option>
+                {branchOptions.map((branch) => (
+                  <option key={branch.value} value={branch.value}>{branch.label}</option>
+                ))}
+              </select>
               <input name="preferred_role" list="role-options" placeholder="Preferred role" />
             </>
           )}
@@ -716,7 +1029,7 @@ function Panel({ title, icon, children, id }) {
 
 function JobCard({ job, onSave, onApply, canApply = true }) {
   const canApplyInPortal = canApply && onApply && isPortalJob(job);
-  const canApplyOnSite = canApply && !isPortalJob(job) && !isSampleJob(job) && job.source_url;
+  const canApplyOnSite = canApply && onApply && !isPortalJob(job) && !isSampleJob(job) && job.source_url;
 
   return (
     <article className="job-card">
@@ -729,11 +1042,7 @@ function JobCard({ job, onSave, onApply, canApply = true }) {
       <small>{job.skills}</small>
       <div className="button-row">
         {onSave && <button onClick={() => onSave(job.id)}>Save</button>}
-        {canApplyOnSite && (
-          <a className="apply-link" href={job.source_url} target="_blank" rel="noreferrer">
-            Apply
-          </a>
-        )}
+        {canApplyOnSite && <button onClick={() => onApply(job)}>Apply</button>}
         {canApplyInPortal && <button onClick={() => onApply(job)}>Apply</button>}
       </div>
     </article>
@@ -742,7 +1051,7 @@ function JobCard({ job, onSave, onApply, canApply = true }) {
 
 function JobRow({ job, meta, onSave, onApply, canApply = true }) {
   const canApplyInPortal = canApply && onApply && isPortalJob(job);
-  const canApplyOnSite = canApply && !isPortalJob(job) && !isSampleJob(job) && job.source_url;
+  const canApplyOnSite = canApply && onApply && !isPortalJob(job) && !isSampleJob(job) && job.source_url;
 
   return (
     <article className="job-row">
@@ -752,11 +1061,7 @@ function JobRow({ job, meta, onSave, onApply, canApply = true }) {
       </div>
       <small>{meta}</small>
       {onSave && <button onClick={() => onSave(job.id)}>Save</button>}
-      {canApplyOnSite && (
-        <a className="apply-link" href={job.source_url} target="_blank" rel="noreferrer">
-          Apply
-        </a>
-      )}
+      {canApplyOnSite && <button onClick={() => onApply(job)}>Apply</button>}
       {canApplyInPortal && <button onClick={() => onApply(job)}>Apply</button>}
     </article>
   );
@@ -830,7 +1135,7 @@ function PostedJobRow({ job, onDelete }) {
 function RoleOptions() {
   return (
     <datalist id="role-options">
-      {roleOptions.map((role) => (
+      {allRoleOptions.map((role) => (
         <option key={role} value={role} />
       ))}
     </datalist>
