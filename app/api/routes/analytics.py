@@ -98,6 +98,15 @@ def analytics_summary(
     for job in jobs:
         skill_counter.update(_job_skill_terms(job))
 
+    application_job_counts = (
+        db.query(Job.title, func.count(Application.id))
+        .join(Application, Application.job_id == Job.id)
+        .group_by(Job.title)
+        .order_by(func.count(Application.id).desc())
+        .limit(10)
+        .all()
+    )
+
     skill_gap_jobs = focused_jobs_for_user(jobs, current_user)
     skill_gap_counter: Counter[str] = Counter()
     for job in skill_gap_jobs:
@@ -131,6 +140,10 @@ def analytics_summary(
         "total_applications": db.query(Application).count(),
         "total_saved_jobs": db.query(SavedJob).count(),
         "total_activity_events": db.query(ActivityLog).count(),
+        "applications_per_job": [
+            {"name": title or "Unknown job", "count": count}
+            for title, count in application_job_counts
+        ],
 
         "top_roles": _top(role_counter),
         "top_locations": _top(location_counter),

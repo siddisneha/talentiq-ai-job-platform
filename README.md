@@ -10,13 +10,14 @@ This backend covers the SOP foundation setup:
 - JWT authentication for register/login and protected dashboard workflows.
 - CRUD APIs for jobs, users, job sources, saved jobs, applications, alerts, and activity logs.
 - Job data ingestion through bulk import, external API import, and configurable BeautifulSoup scraping.
-- PostgreSQL-ready configuration for cloud deployment.
+- SQLite for local development and PostgreSQL-ready configuration for deployment.
 
 ## Tech Stack
 
 - FastAPI
 - SQLAlchemy
-- SQLite for local development, PostgreSQL for deployment
+- SQLite for local development
+- PostgreSQL-ready deployment support
 - JWT authentication
 - Pydantic settings
 - BeautifulSoup and Requests for job-source ingestion

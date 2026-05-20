@@ -3,11 +3,13 @@ import { createRoot } from "react-dom/client";
 import {
   Bell,
   BriefcaseBusiness,
+  BarChart3,
   ChartColumn,
   ExternalLink,
   FileText,
   Link,
   LogOut,
+  LayoutDashboard,
   PlusCircle,
   Search,
   Sparkles,
@@ -226,17 +228,7 @@ function App() {
   const topSkillData = useMemo(() => analytics?.top_skills || [], [analytics]);
   const topRoleData = useMemo(() => analytics?.top_roles || [], [analytics]);
   const topLocationData = useMemo(() => analytics?.top_locations || [], [analytics]);
-  const applicationPerJobData = useMemo(() => {
-    const counts = new Map();
-    applications.forEach((application) => {
-      const title = application.job?.title || "Unknown job";
-      counts.set(title, (counts.get(title) || 0) + 1);
-    });
-    return [...counts.entries()]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-  }, [applications]);
+  const applicationPerJobData = useMemo(() => analytics?.applications_per_job || [], [analytics]);
   const engagementData = useMemo(() => {
     const activity = dashboard?.recent_activity_count || 0;
     const alertsCount = dashboard?.alerts_count || 0;
@@ -493,8 +485,8 @@ function App() {
           </div>
         </div>
         <nav>
-          <button className={activeView === "dashboard" ? "active-nav" : ""} onClick={() => setActiveView("dashboard")}><ChartColumn size={18} /> Dashboard</button>
-          <button className={activeView === "analytics" ? "active-nav" : ""} onClick={() => setActiveView("analytics")}><ChartColumn size={18} /> Analytics</button>
+          <button className={activeView === "dashboard" ? "active-nav" : ""} onClick={() => setActiveView("dashboard")}><LayoutDashboard size={18} /> Dashboard</button>
+          <button className={activeView === "analytics" ? "active-nav" : ""} onClick={() => setActiveView("analytics")}><BarChart3 size={18} /> Analytics</button>
           <button className={activeView === "jobs" ? "active-nav" : ""} onClick={() => setActiveView("jobs")}><Search size={18} /> Jobs</button>
           {canManageJobs(user) && <button className={activeView === "post-jobs" ? "active-nav" : ""} onClick={() => setActiveView("post-jobs")}><PlusCircle size={18} /> Post Jobs</button>}
           {isCandidate(user) && <button className={activeView === "tracker" ? "active-nav" : ""} onClick={() => setActiveView("tracker")}><FileText size={18} /> Tracker</button>}
@@ -553,7 +545,7 @@ function App() {
         {activeView === "analytics" && (
           <section className="analytics-workspace">
             <div className="detail-grid">
-              <Panel title="Applications per Job" icon={<ChartColumn size={20} />}>
+              <Panel title="Applications per Job (All Users)" icon={<ChartColumn size={20} />}>
                 <div className="chart-box">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={applicationPerJobData} layout="vertical">

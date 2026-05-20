@@ -19,6 +19,7 @@ class AnalyticsSummary(BaseModel):
     total_applications: int
     total_saved_jobs: int
     total_activity_events: int
+    applications_per_job: list[NamedCount]
     top_roles: list[NamedCount]
     top_locations: list[NamedCount]
     top_skills: list[NamedCount]
