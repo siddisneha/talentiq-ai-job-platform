@@ -12,6 +12,7 @@ class JobRecommendation(BaseModel):
     score: float
     matched_skills: list[str]
     reasons: list[str]
+    explanation: str | None = None
 
 
 class ResumeMatchResponse(BaseModel):

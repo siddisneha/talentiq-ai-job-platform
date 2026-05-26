@@ -59,3 +59,13 @@ class UserRead(UserBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ResumeParseResult(BaseModel):
+    message: str
+    resume_url: str
+    extracted_text: str
+    extracted_text_preview: str
+    extracted_skills: list[str]
+    inferred_profile: dict[str, str | None]
+    user: UserRead

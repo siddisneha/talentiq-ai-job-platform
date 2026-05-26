@@ -198,6 +198,18 @@ function jobSourceLabel(job) {
   return job.source_name || "External";
 }
 
+function stripHtml(value) {
+  return String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatMatchScore(score) {
+  const value = Number(score);
+  return Number.isFinite(value) ? `${Math.round(value)}% match` : "Match";
+}
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem("job_portal_token"));
   const [activeView, setActiveView] = useState("dashboard");
@@ -206,6 +218,7 @@ function App() {
   const [myJobs, setMyJobs] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [recruiterAnalytics, setRecruiterAnalytics] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [applications, setApplications] = useState([]);
   const [employerApplications, setEmployerApplications] = useState([]);
@@ -214,7 +227,9 @@ function App() {
   const [alertMatches, setAlertMatches] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
   const [resumeText, setResumeText] = useState("");
+  const [uploadedResumeText, setUploadedResumeText] = useState("");
   const [resumeResult, setResumeResult] = useState(null);
+  const [resumeUploadResult, setResumeUploadResult] = useState(null);
   const [applyTarget, setApplyTarget] = useState(null);
   const [appliedJob, setAppliedJob] = useState(null);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -280,6 +295,7 @@ function App() {
           safe(api.employerApplications, []),
         ])
       : [[], []];
+    const recruiterStats = canManageJobs(me) ? await safe(api.recruiterAnalytics, null) : null;
     setMyJobs(postedJobs);
     setEmployerApplications(applicants);
     setDashboard(dash);
@@ -288,6 +304,7 @@ function App() {
     setSavedJobs(saved);
     setAnalytics(stats);
     setAlerts(userAlerts);
+    setRecruiterAnalytics(recruiterStats);
   }
 
   async function loadJobs(nextFilters = filters) {
@@ -301,7 +318,7 @@ function App() {
     if (isCandidate(user) && user?.preferred_branch && !clean.search && !clean.skill) {
       clean.branch = user.preferred_branch;
     }
-    setJobs(await api.jobs(clean));
+    setJobs(token ? await api.jobs(clean) : await api.publicJobs(clean));
   }
 
   useEffect(() => {
@@ -310,6 +327,12 @@ function App() {
       loadPrivateData().catch((error) => setMessage(error.message));
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      loadJobs().catch((error) => setMessage(error.message));
+    }
+  }, [filters, token]);
 
   useEffect(() => {
     if (token && user) {
@@ -322,6 +345,16 @@ function App() {
     localStorage.setItem("job_portal_token", data.access_token);
     setToken(data.access_token);
     setMessage("Signed in successfully");
+  }
+
+  function promptLoginForApply(job) {
+    setApplyTarget(job);
+    setMessage("Sign in to continue with this application");
+    window.setTimeout(() => {
+      const loginInput = document.querySelector('input[name="email"]');
+      loginInput?.focus();
+      loginInput?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
   }
 
   function logout() {
@@ -434,7 +467,8 @@ function App() {
   }
 
   async function matchResume() {
-    const result = await api.resumeMatch(resumeText);
+    const text = (uploadedResumeText || resumeText).trim();
+    const result = await api.resumeMatch(text);
     setResumeResult(result);
   }
 
@@ -454,8 +488,11 @@ function App() {
   async function uploadResume(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const updated = await api.uploadResume(file);
-    setUser(updated);
+    const result = await api.uploadResume(file);
+    setUser(result.user);
+    setResumeUploadResult(result);
+    setUploadedResumeText(result.extracted_text || "");
+    setResumeResult(null);
     setMessage("Resume uploaded");
   }
 
@@ -470,7 +507,146 @@ function App() {
   );
 
   if (!token) {
-    return <AuthScreen onLogin={handleLogin} onRegister={api.register} message={message} setMessage={setMessage} />;
+    if (applyTarget) {
+      const previewDescription = stripHtml(applyTarget.description).slice(0, 420);
+      return (
+        <main className="auth-screen auth-screen-guest">
+          <section className="auth-panel auth-panel-compact">
+            <p className="eyebrow">Continue your application</p>
+            <h1>Sign in to apply</h1>
+            <p>
+              We’ll keep the job you clicked selected. Log in or create an account to finish the application.
+            </p>
+            <div className="segmented">
+              <button className="active" type="button">Login</button>
+              <button type="button">Register</button>
+            </div>
+            <form className="stack-form" onSubmit={(event) => { event.preventDefault(); const p = Object.fromEntries(new FormData(event.currentTarget).entries()); handleLogin(p.email, p.password); }}>
+              <input name="email" type="email" placeholder="Email" required />
+              <input name="password" type="password" placeholder="Password" required />
+              <button type="submit">Continue to apply</button>
+            </form>
+            <div className="auth-note">New here? Create an account in the register tab below.</div>
+            <form className="stack-form auth-register-mini" onSubmit={async (event) => {
+              event.preventDefault();
+              const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+              await api.register(payload);
+              await handleLogin(payload.email, payload.password);
+            }}>
+              <input name="full_name" placeholder="Full name" required />
+              <input name="email" type="email" placeholder="Email" required />
+              <input name="password" type="password" placeholder="Password" required />
+              <button type="submit" className="secondary-button">Create account</button>
+            </form>
+          </section>
+          <section className="auth-visual auth-visual-job">
+            <div className="preview-window job-preview">
+              <div className="job-meta-row">
+                <span>{applyTarget.job_type || "Job"}</span>
+                <b>{jobSourceLabel(applyTarget)}</b>
+              </div>
+              <h2>{applyTarget.title}</h2>
+              <p>{applyTarget.company} · {applyTarget.location}</p>
+              <small>{applyTarget.skills || "No skills listed"}</small>
+              <p className="hero-subtitle">{previewDescription || "Review the role details after signing in."}</p>
+              <div className="hero-badges">
+                <span>Selected job</span>
+                <span>Apply after login</span>
+              </div>
+            </div>
+          </section>
+        </main>
+      );
+    }
+    return (
+      <main className="public-page">
+        <section className="public-content">
+          <header className="public-hero">
+            <div className="public-hero-copy">
+              <p className="eyebrow">Browse first, apply later</p>
+              <h1>Find jobs that actually fit your profile</h1>
+              <p className="hero-subtitle">
+                Search fresh openings, compare roles, and sign in only when you want to save or apply.
+              </p>
+              <div className="hero-badges">
+                <span>Public job browsing</span>
+                <span>AI matching</span>
+                <span>Recruiter dashboard</span>
+              </div>
+              <div className="hero-stats">
+                <div><span>{jobs.length}</span><label>Live jobs</label></div>
+                <div><span>{countryOptions.length}</span><label>Locations</label></div>
+                <div><span>AI</span><label>Match engine</label></div>
+              </div>
+            </div>
+          </header>
+
+          <section className="public-feed">
+            <Panel title="Search Jobs" icon={<Search size={20} />}>
+              <form className="filter-grid" onSubmit={(event) => { event.preventDefault(); loadJobs(filters); }}>
+                {Object.keys(emptyFilters).map((key) => (
+                  key === "country" ? (
+                    <select
+                      key={key}
+                      value={filters.country}
+                      onChange={(event) => setFilters({ ...filters, country: event.target.value })}
+                    >
+                      <option value="">All countries</option>
+                      {countryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      key={key}
+                      placeholder={key.replace("_", " ")}
+                      value={filters[key]}
+                      onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}
+                    />
+                  )
+                ))}
+                <button type="submit">Search</button>
+              </form>
+                <div className="jobs-section-head">
+                  <h3>Featured jobs</h3>
+                  <span>{jobs.length} live postings</span>
+                </div>
+                <div className="job-grid public-job-grid">
+                  {jobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      onSave={() => setMessage("Login or register to save jobs")}
+                      onApply={() => promptLoginForApply(job)}
+                      canApply
+                    />
+                  ))}
+                </div>
+              </Panel>
+              <section className="public-auth-panels">
+                <Panel title="Login" icon={<LogOut size={20} />}>
+                  <form className="stack-form" onSubmit={(event) => { event.preventDefault(); const p = Object.fromEntries(new FormData(event.currentTarget).entries()); handleLogin(p.email, p.password); }}>
+                    <input name="email" type="email" placeholder="Email" required />
+                    <input name="password" type="password" placeholder="Password" required />
+                    <button type="submit">Login</button>
+                  </form>
+                </Panel>
+                <Panel title="Register" icon={<UserRound size={20} />}>
+                  <form className="stack-form" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+                    await api.register(payload);
+                    await handleLogin(payload.email, payload.password);
+                  }}>
+                    <input name="full_name" placeholder="Full name" required />
+                    <input name="email" type="email" placeholder="Email" required />
+                    <input name="password" type="password" placeholder="Password" required />
+                    <button type="submit">Create Account</button>
+                  </form>
+                </Panel>
+              </section>
+            </section>
+          </section>
+      </main>
+    );
   }
 
   return (
@@ -513,6 +689,45 @@ function App() {
               <Metric label="Alerts" value={dashboard?.alerts_count || 0} />
               <Metric label="Active jobs" value={dashboard?.active_jobs_count || 0} />
             </section>
+            {canManageJobs(user) && recruiterAnalytics && (
+              <section className="dashboard-grid">
+                <Panel title="Recruiter Overview" icon={<BriefcaseBusiness size={20} />}>
+                  <div className="snapshot-grid">
+                    <Snapshot label="Total jobs" value={recruiterAnalytics.total_jobs} />
+                    <Snapshot label="Active jobs" value={recruiterAnalytics.active_jobs} />
+                    <Snapshot label="Closed jobs" value={recruiterAnalytics.closed_jobs} />
+                    <Snapshot label="Applications" value={recruiterAnalytics.total_applications} />
+                    <Snapshot label="Recent apps" value={recruiterAnalytics.recent_applications} />
+                  </div>
+                </Panel>
+                <Panel title="Top Recruiter Jobs" icon={<ChartColumn size={20} />}>
+                  <div className="list-stack">
+                    {(recruiterAnalytics.top_jobs || []).map((job) => (
+                      <JobRow key={job.job_id} job={{ id: job.job_id, title: job.title, company: job.company, location: "", job_type: "", skills: "" }} meta={`${job.applications} applications`} />
+                    ))}
+                  </div>
+                </Panel>
+              </section>
+            )}
+
+            {isCandidate(user) && (
+              <Panel title="Recommended Jobs" icon={<Sparkles size={20} />}>
+                <div className="list-stack">
+                  {availableRecommendations.slice(0, 3).map((item) => (
+                    <div key={item.job.id} className="recommendation-card">
+                      <JobRow
+                        job={item.job}
+                        meta={formatMatchScore(item.score)}
+                        onSave={saveJob}
+                        onApply={setApplyTarget}
+                        canApply={isCandidate(user)}
+                      />
+                      {item.explanation && <p className="resume-preview">{item.explanation}</p>}
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            )}
 
             <section className="dashboard-grid">
               <Panel title="Career Snapshot" icon={<UserRound size={20} />}>
@@ -634,7 +849,10 @@ function App() {
               <Panel title="Recommended Jobs" icon={<Sparkles size={20} />}>
                 <div className="list-stack">
                   {availableRecommendations.slice(0, 5).map((item) => (
-                    <JobRow key={item.job.id} job={item.job} meta={`${item.score}% match`} onSave={saveJob} onApply={setApplyTarget} canApply={isCandidate(user)} />
+                    <div key={item.job.id} className="recommendation-card">
+                      <JobRow job={item.job} meta={`${item.score}% match`} onSave={saveJob} onApply={setApplyTarget} canApply={isCandidate(user)} />
+                      {item.explanation && <p className="resume-preview">{item.explanation}</p>}
+                    </div>
                   ))}
                 </div>
               </Panel>
@@ -703,6 +921,12 @@ function App() {
 
         {activeView === "post-jobs" && canManageJobs(user) && (
           <section className="post-jobs-workspace">
+            <section className="metric-grid">
+              <Metric label="Posted jobs" value={myJobs.length} />
+              <Metric label="Applicants" value={recruiterAnalytics?.total_applications || employerApplications.length} />
+              <Metric label="Active roles" value={myJobs.filter((job) => job.is_active).length} />
+              <Metric label="Imported jobs" value={importResult?.created_count || 0} />
+            </section>
             <Panel title="Create Job Post" icon={<PlusCircle size={20} />}>
               <form className="job-post-form" onSubmit={createJob}>
                 <label>Title<input name="title" placeholder="Python Backend Developer" required /></label>
@@ -735,6 +959,20 @@ function App() {
                 ))}
               </div>
             </Panel>
+            {recruiterAnalytics && (
+              <Panel title="Applicant Skills & Statuses" icon={<ChartColumn size={20} />}>
+                <div className="skill-gap-card">
+                  <div className="skill-gap-section">
+                    <h4>Top applicant skills</h4>
+                    <p>{(recruiterAnalytics.applicant_skills || []).map((item) => item.name).join(", ") || "No applicant skill data"}</p>
+                  </div>
+                  <div className="skill-gap-section">
+                    <h4>Application statuses</h4>
+                    <p>{(recruiterAnalytics.job_statuses || []).map((item) => `${item.name}: ${item.count}`).join(" | ") || "No status data"}</p>
+                  </div>
+                </div>
+              </Panel>
+            )}
             <Panel title="Import Real Jobs" icon={<Sparkles size={20} />}>
               <form className="stack-form import-pack-form" onSubmit={importRolePack}>
                 <input name="branches" defaultValue="data_ai, cse_it, ece, eee" />
@@ -840,6 +1078,14 @@ function App() {
                 <small>PDF, DOC, DOCX, or TXT</small>
                 <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={uploadResume} />
               </label>
+              {resumeUploadResult && (
+                <div className="resume-result">
+                  <strong>Resume uploaded</strong>
+                  {resumeUploadResult.inferred_profile?.preferred_role && (
+                    <div>Inferred role: {resumeUploadResult.inferred_profile.preferred_role}</div>
+                  )}
+                </div>
+              )}
               {user?.resume_url && (
                 <a className="resume-link" href={`http://127.0.0.1:8000${user.resume_url}`} target="_blank" rel="noreferrer">
                   <Link size={16} /> View uploaded resume
@@ -847,8 +1093,15 @@ function App() {
               )}
               </Panel>
               <Panel title="Resume Matching" icon={<Sparkles size={20} />}>
-                <textarea value={resumeText} onChange={(event) => setResumeText(event.target.value)} placeholder="Paste resume text to extract skills and match jobs" />
+                <textarea
+                  value={resumeText}
+                  onChange={(event) => setResumeText(event.target.value)}
+                  placeholder={uploadedResumeText ? "Resume uploaded. Click Match Resume to analyze it." : "Paste resume text to extract skills and match jobs"}
+                />
                 <button onClick={matchResume}>Match Resume</button>
+                {uploadedResumeText && !resumeText.trim() && (
+                  <div className="resume-preview">Using the uploaded resume for matching.</div>
+                )}
                 {resumeResult && (
                   <div className="resume-result">
                     <strong>Extracted skills: {resumeResult.extracted_skills.join(", ") || "No known skills found"}</strong>
@@ -939,7 +1192,7 @@ function viewTitle(activeView, user) {
   return titles[activeView];
 }
 
-function AuthScreen({ onLogin, onRegister, message, setMessage }) {
+function AuthScreen({ onLogin, onRegister, message, setMessage, publicJobs = [], onNeedLogin }) {
   const [mode, setMode] = useState("login");
 
   async function submit(event) {
@@ -1002,6 +1255,17 @@ function AuthScreen({ onLogin, onRegister, message, setMessage }) {
         </form>
         {message && <p className="form-message">{message}</p>}
         <RoleOptions />
+      </section>
+      <section className="auth-visual">
+        <div className="preview-window" style={{ width: "100%" }}>
+          <h2 style={{ marginBottom: 16 }}>Latest jobs</h2>
+          <div style={{ display: "grid", gap: 12 }}>
+            {publicJobs.slice(0, 4).map((job) => (
+              <JobCard key={job.id} job={job} onApply={onNeedLogin} onSave={onNeedLogin} canApply />
+            ))}
+          </div>
+          {!publicJobs.length && <p>No jobs loaded yet.</p>}
+        </div>
       </section>
     </main>
   );

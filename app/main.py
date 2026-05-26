@@ -19,6 +19,7 @@ from app.api.routes import (
     ingestion,
     job_sources,
     jobs,
+    public,
     recommendations,
     saved_jobs,
     users,
@@ -49,6 +50,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
 app.include_router(job_sources.router, prefix="/api/job-sources", tags=["job sources"])
+app.include_router(public.router, prefix="/api/public", tags=["public"])
 app.include_router(saved_jobs.router, prefix="/api/saved-jobs", tags=["saved jobs"])
 app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])

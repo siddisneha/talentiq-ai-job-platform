@@ -12,6 +12,7 @@ from app.models.job import Job
 from app.models.saved_job import SavedJob
 from app.models.user import User
 from app.schemas.analytics import AnalyticsSummary
+from app.schemas.analytics import RecruiterDashboardSummary, RecruiterJobInsight
 from app.services.recommendations import (
     COMMON_SKILLS,
     extract_known_skills,
@@ -163,4 +164,69 @@ def analytics_summary(
 
         "user_skills": sorted(user_skills),
         "missing_skills": missing_skills,
+    }
+
+
+@router.get("/recruiter", response_model=RecruiterDashboardSummary)
+def recruiter_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in {"employer", "admin"}:
+        return {
+            "total_jobs": 0,
+            "active_jobs": 0,
+            "closed_jobs": 0,
+            "total_applications": 0,
+            "recent_applications": 0,
+            "top_jobs": [],
+            "applicant_skills": [],
+            "job_statuses": [],
+        }
+
+    jobs_query = db.query(Job)
+    if current_user.role != "admin":
+        jobs_query = jobs_query.filter(Job.posted_by_id == current_user.id)
+
+    jobs = jobs_query.all()
+    job_ids = [job.id for job in jobs]
+    apps_query = db.query(Application).filter(Application.job_id.in_(job_ids)) if job_ids else db.query(Application).filter(False)
+    applications = apps_query.all()
+    recent_applications = (
+        apps_query.order_by(Application.created_at.desc()).limit(10).all() if job_ids else []
+    )
+    job_application_counts = Counter(app.job_id for app in applications)
+    job_map = {job.id: job for job in jobs}
+
+    applicant_skill_counter: Counter[str] = Counter()
+    for application in recent_applications:
+        applicant = application.user
+        if applicant and applicant.skills:
+            applicant_skill_counter.update(split_skills(applicant.skills))
+
+    status_counter = Counter(application.status for application in applications)
+    top_jobs = sorted(
+        [
+            RecruiterJobInsight(
+                job_id=job_id,
+                title=job_map[job_id].title,
+                company=job_map[job_id].company,
+                applications=count,
+            )
+            for job_id, count in job_application_counts.items()
+            if job_id in job_map
+        ],
+        key=lambda item: item.applications,
+        reverse=True,
+    )[:5]
+
+    return {
+        "total_jobs": len(jobs),
+        "active_jobs": sum(1 for job in jobs if job.is_active),
+        "closed_jobs": sum(1 for job in jobs if not job.is_active),
+        "total_applications": len(applications),
+        "recent_applications": len(recent_applications),
+        "top_jobs": top_jobs,
+        "applicant_skills": [{"name": name, "count": count} for name, count in applicant_skill_counter.most_common(10)],
+        "job_statuses": [{"name": name, "count": count} for name, count in status_counter.most_common(6)],
     }

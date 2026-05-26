@@ -27,3 +27,26 @@ class AnalyticsSummary(BaseModel):
     application_statuses: list[NamedCount]
     user_skills: list[str]
     missing_skills: list[str]
+
+
+class RecruiterMetric(BaseModel):
+    name: str
+    value: int
+
+
+class RecruiterJobInsight(BaseModel):
+    job_id: int
+    title: str
+    company: str
+    applications: int
+
+
+class RecruiterDashboardSummary(BaseModel):
+    total_jobs: int
+    active_jobs: int
+    closed_jobs: int
+    total_applications: int
+    recent_applications: int
+    top_jobs: list[RecruiterJobInsight]
+    applicant_skills: list[NamedCount]
+    job_statuses: list[NamedCount]

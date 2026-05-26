@@ -36,6 +36,7 @@ export const api = {
     return request("/api/users/me/resume", { method: "POST", body });
   },
   jobs: (params) => request(`/api/jobs/?${new URLSearchParams(params)}`),
+  publicJobs: (params) => request(`/api/public/jobs?${new URLSearchParams(params)}`),
   myJobs: () => request("/api/jobs/mine"),
   createJob: (payload) => request("/api/jobs/", { method: "POST", body: JSON.stringify(payload) }),
   deleteJob: (id) => request(`/api/jobs/${id}`, { method: "DELETE" }),
@@ -58,6 +59,7 @@ export const api = {
       body: JSON.stringify({ resume_text: resumeText }),
     }),
   analytics: () => request("/api/analytics/summary"), // this is calling the backend get/api/analytics/summary then the func in that runs 
+  recruiterAnalytics: () => request("/api/analytics/recruiter"),
   alerts: () => request("/api/alerts/"),
   createAlert: (payload) => request("/api/alerts/", { method: "POST", body: JSON.stringify(payload) }),
   alertMatches: (id) => request(`/api/alerts/${id}/matches`),
