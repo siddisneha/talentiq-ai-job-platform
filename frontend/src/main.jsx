@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Bell,
@@ -361,6 +361,10 @@ function App() {
     localStorage.removeItem("job_portal_token");
     setToken(null);
     setUser(null);
+    setActiveView("dashboard");
+    setApplyTarget(null);
+    setMessage("Returned to sign-in");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function saveJob(jobId) {
@@ -508,52 +512,74 @@ function App() {
 
   if (!token) {
     if (applyTarget) {
-      const previewDescription = stripHtml(applyTarget.description).slice(0, 420);
       return (
-        <main className="auth-screen auth-screen-guest">
-          <section className="auth-panel auth-panel-compact">
-            <p className="eyebrow">Continue your application</p>
-            <h1>Sign in to apply</h1>
+        <main className="auth-screen auth-screen-avenir auth-screen-apply">
+          <section className="auth-brand-panel" aria-label="Avenir brand introduction">
+            <div className="auth-brand-badge">
+              <BriefcaseBusiness size={22} />
+              <span>Avenir</span>
+            </div>
+            <h1>Where talent meets momentum.</h1>
             <p>
-              We’ll keep the job you clicked selected. Log in or create an account to finish the application.
+              Log in or create an account to finish your application. Your selected job stays saved while you sign in.
             </p>
-            <div className="segmented">
-              <button className="active" type="button">Login</button>
-              <button type="button">Register</button>
+            <div className="auth-feature-pills" aria-label="Platform highlights">
+              <span>Selected job saved</span>
+              <span>Quick sign-in</span>
+              <span>Apply in one step</span>
             </div>
-            <form className="stack-form" onSubmit={(event) => { event.preventDefault(); const p = Object.fromEntries(new FormData(event.currentTarget).entries()); handleLogin(p.email, p.password); }}>
-              <input name="email" type="email" placeholder="Email" required />
-              <input name="password" type="password" placeholder="Password" required />
-              <button type="submit">Continue to apply</button>
-            </form>
-            <div className="auth-note">New here? Create an account in the register tab below.</div>
-            <form className="stack-form auth-register-mini" onSubmit={async (event) => {
-              event.preventDefault();
-              const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
-              await api.register(payload);
-              await handleLogin(payload.email, payload.password);
-            }}>
-              <input name="full_name" placeholder="Full name" required />
-              <input name="email" type="email" placeholder="Email" required />
-              <input name="password" type="password" placeholder="Password" required />
-              <button type="submit" className="secondary-button">Create account</button>
-            </form>
           </section>
-          <section className="auth-visual auth-visual-job">
-            <div className="preview-window job-preview">
-              <div className="job-meta-row">
-                <span>{applyTarget.job_type || "Job"}</span>
-                <b>{jobSourceLabel(applyTarget)}</b>
+
+          <section className="auth-form-panel">
+            <div className="auth-card-shell auth-card-avenir">
+              <div className="auth-brand-header auth-brand-header-avenir">
+                <div className="auth-brand-mark">
+                  <BriefcaseBusiness size={20} />
+                </div>
+                <div>
+                  <h2>Continue your application</h2>
+                  <p>Sign in or register to apply for your selected role.</p>
+                </div>
               </div>
-              <h2>{applyTarget.title}</h2>
-              <p>{applyTarget.company} · {applyTarget.location}</p>
-              <small>{applyTarget.skills || "No skills listed"}</small>
-              <p className="hero-subtitle">{previewDescription || "Review the role details after signing in."}</p>
-              <div className="hero-badges">
-                <span>Selected job</span>
-                <span>Apply after login</span>
+              <div className="segmented">
+                <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button>
+                <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Register</button>
               </div>
+              <form className="stack-form" onSubmit={submit}>
+                {mode === "register" && <input name="full_name" placeholder="Full name" required />}
+                {mode === "register" && (
+                  <select name="role" defaultValue="candidate">
+                    <option value="candidate">Candidate account</option>
+                    <option value="employer">Employer account</option>
+                  </select>
+                )}
+                <input name="email" type="email" placeholder="Email" required />
+                <input name="password" type="password" placeholder="Password" required />
+                {mode === "register" && (
+                  <>
+                    <input name="skills" placeholder="Skills, comma separated" />
+                    <input name="preferred_location" placeholder="Preferred location" />
+                    <select name="preferred_branch" defaultValue="">
+                      <option value="">Choose branch/domain</option>
+                      {branchOptions.map((branch) => (
+                        <option key={branch.value} value={branch.value}>{branch.label}</option>
+                      ))}
+                    </select>
+                    <input name="preferred_role" list="role-options" placeholder="Preferred role" />
+                  </>
+                )}
+                <button type="submit">{mode === "login" ? "Continue to apply" : "Create account"}</button>
+              </form>
+              {message && <p className="form-message">{message}</p>}
+              <div className="auth-note">Your selected job will remain attached after sign-in.</div>
             </div>
+
+            <div className="auth-mini-preview">
+              <span className="auth-mini-preview-label">Selected role</span>
+              <strong>{applyTarget.title}</strong>
+              <small>{applyTarget.company} · {applyTarget.location}</small>
+            </div>
+            <RoleOptions />
           </section>
         </main>
       );
@@ -678,7 +704,22 @@ function App() {
             <p className="eyebrow">Personalized career workspace</p>
             <h1>{viewTitle(activeView, user)}</h1>
           </div>
-          {message && <span className="status-pill">{message}</span>}
+          <div className="topbar-actions">
+            {message && <span className="status-pill">{message}</span>}
+            <button className="ghost-button topbar-switch" onClick={logout} type="button">
+              <LogOut size={16} /> Switch account
+            </button>
+            <button
+              className="ghost-button topbar-switch"
+              onClick={() => {
+                logout();
+                setMessage("Sign in or create an account to continue.");
+              }}
+              type="button"
+            >
+              <UserRound size={16} /> Open sign up
+            </button>
+          </div>
         </header>
 
         {activeView === "dashboard" && (
@@ -1194,6 +1235,7 @@ function viewTitle(activeView, user) {
 
 function AuthScreen({ onLogin, onRegister, message, setMessage, publicJobs = [], onNeedLogin }) {
   const [mode, setMode] = useState("login");
+  const featuredJob = publicJobs[0];
 
   async function submit(event) {
     event.preventDefault();
@@ -1212,60 +1254,97 @@ function AuthScreen({ onLogin, onRegister, message, setMessage, publicJobs = [],
   }
 
   return (
-    <main className="auth-screen">
-      <section className="auth-visual" aria-label="Job discovery dashboard preview">
-        <div className="preview-window">
-          <div className="preview-line wide" />
-          <div className="preview-line" />
-          <div className="preview-cards"><span /><span /><span /></div>
+    <main className="auth-screen auth-screen-avenir">
+      <section className="auth-brand-panel" aria-label="Avenir brand introduction">
+        <div className="auth-brand-badge">
+          <BriefcaseBusiness size={22} />
+          <span>Avenir</span>
+        </div>
+        <h1>Where talent meets momentum.</h1>
+        <p>
+          Discover roles that fit your skills, explore opportunities with confidence,
+          and continue your application only when you are ready.
+        </p>
+        <div className="auth-feature-pills" aria-label="Platform highlights">
+          <span>Curated roles</span>
+          <span>Fast apply</span>
+          <span>Smart matching</span>
+        </div>
+        <div className="auth-brand-mini-row" aria-hidden="true">
+          <div className="auth-mini-card">
+            <Sparkles size={16} />
+            <strong>Personalized matches</strong>
+            <small>Roles aligned to your profile.</small>
+          </div>
+          <div className="auth-mini-card">
+            <Star size={16} />
+            <strong>Recruiter-ready</strong>
+            <small>Built for students and hiring teams.</small>
+          </div>
         </div>
       </section>
-      <section className="auth-panel">
-        <BriefcaseBusiness size={36} />
-        <h1>Job Portal</h1>
-        <p>Search jobs, track applications, post openings, and review career insights.</p>
-        <div className="segmented">
-          <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button>
-          <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Register</button>
-        </div>
-        <form className="stack-form" onSubmit={submit}>
-          {mode === "register" && <input name="full_name" placeholder="Full name" required />}
-          {mode === "register" && (
-            <select name="role" defaultValue="candidate">
-              <option value="candidate">Candidate account</option>
-              <option value="employer">Employer account</option>
-            </select>
-          )}
-          <input name="email" type="email" placeholder="Email" required />
-          <input name="password" type="password" placeholder="Password" required />
-          {mode === "register" && (
-            <>
-              <input name="skills" placeholder="Skills, comma separated" />
-              <input name="preferred_location" placeholder="Preferred location" />
-              <select name="preferred_branch" defaultValue="">
-                <option value="">Choose branch/domain</option>
-                {branchOptions.map((branch) => (
-                  <option key={branch.value} value={branch.value}>{branch.label}</option>
-                ))}
+
+      <section className="auth-form-panel">
+        <div className="auth-card-shell auth-card-avenir">
+          <div className="auth-brand-header auth-brand-header-avenir">
+            <div className="auth-brand-mark">
+              <BriefcaseBusiness size={20} />
+            </div>
+            <div>
+              <h2>Welcome to Avenir</h2>
+              <p>Sign in or create your account to continue.</p>
+            </div>
+          </div>
+          <div className="segmented">
+            <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button>
+            <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Register</button>
+          </div>
+          <form className="stack-form" onSubmit={submit}>
+            {mode === "register" && <input name="full_name" placeholder="Full name" required />}
+            {mode === "register" && (
+              <select name="role" defaultValue="candidate">
+                <option value="candidate">Candidate account</option>
+                <option value="employer">Employer account</option>
               </select>
-              <input name="preferred_role" list="role-options" placeholder="Preferred role" />
+            )}
+            <input name="email" type="email" placeholder="Email" required />
+            <input name="password" type="password" placeholder="Password" required />
+            {mode === "register" && (
+              <>
+                <input name="skills" placeholder="Skills, comma separated" />
+                <input name="preferred_location" placeholder="Preferred location" />
+                <select name="preferred_branch" defaultValue="">
+                  <option value="">Choose branch/domain</option>
+                  {branchOptions.map((branch) => (
+                    <option key={branch.value} value={branch.value}>{branch.label}</option>
+                  ))}
+                </select>
+                <input name="preferred_role" list="role-options" placeholder="Preferred role" />
+              </>
+            )}
+            <button type="submit">{mode === "login" ? "Login" : "Create Account"}</button>
+          </form>
+          {message && <p className="form-message">{message}</p>}
+          <div className="auth-note">
+            Browse jobs freely. Sign in only when you want to save or apply.
+          </div>
+        </div>
+
+        <div className="auth-mini-preview">
+          <span className="auth-mini-preview-label">Featured role</span>
+          {featuredJob ? (
+            <>
+              <strong>{featuredJob.title}</strong>
+              <small>{featuredJob.company} · {featuredJob.location}</small>
+            </>
+          ) : (
+            <>
+              <strong>Curated opportunities</strong>
+              <small>New roles appear here as they are imported.</small>
             </>
           )}
-          <button type="submit">{mode === "login" ? "Login" : "Create Account"}</button>
-        </form>
-        {message && <p className="form-message">{message}</p>}
-        <RoleOptions />
-      </section>
-      <section className="auth-visual">
-        <div className="preview-window" style={{ width: "100%" }}>
-          <h2 style={{ marginBottom: 16 }}>Latest jobs</h2>
-          <div style={{ display: "grid", gap: 12 }}>
-            {publicJobs.slice(0, 4).map((job) => (
-              <JobCard key={job.id} job={job} onApply={onNeedLogin} onSave={onNeedLogin} canApply />
-            ))}
-          </div>
-          {!publicJobs.length && <p>No jobs loaded yet.</p>}
         </div>
+        <RoleOptions />
       </section>
     </main>
   );

@@ -29,6 +29,7 @@ export const api = {
     });
   },
   me: () => request("/api/users/me"),
+  savedResume: () => request("/api/users/me/resume/parsed"),
   updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: JSON.stringify(payload) }),
   uploadResume: (file) => {
     const body = new FormData();
