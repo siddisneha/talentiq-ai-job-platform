@@ -38,21 +38,45 @@ KNOWN_SKILLS = [
     "mongodb",
     "machine learning",
     "deep learning",
+    "artificial intelligence",
     "data analysis",
+    "data analytics",
     "data visualization",
+    "data science",
+    "statistics",
+    "power query",
+    "dax",
+    "etl",
+    "data cleaning",
+    "predictive modeling",
+    "regression",
+    "classification",
+    "clustering",
     "pandas",
     "numpy",
+    "scikit-learn",
+    "sklearn",
     "tensorflow",
     "pytorch",
     "opencv",
     "nlp",
+    "natural language processing",
+    "computer vision",
+    "generative ai",
+    "llm",
     "power bi",
     "tableau",
     "excel",
+    "advanced excel",
     "aws",
     "azure",
+    "gcp",
     "docker",
     "kubernetes",
+    "git",
+    "github",
+    "rest api",
+    "api",
     "autocad",
     "solidworks",
     "catia",
@@ -183,9 +207,11 @@ def infer_experience_years(text: str) -> str | None:
 
 def infer_role_from_skills(skills: list[str]) -> str | None:
     skill_set = set(skills)
-    if {"python", "sql", "pandas", "machine learning"} & skill_set:
+    if {"machine learning", "deep learning", "tensorflow", "pytorch", "scikit-learn", "sklearn", "nlp"} & skill_set:
+        return "Machine Learning Engineer"
+    if {"python", "sql", "pandas", "data analysis", "data analytics", "power bi", "excel"} & skill_set:
         return "Data Analyst"
-    if {"python", "fastapi", "django", "flask", "javascript", "react"} & skill_set:
+    if {"python", "fastapi", "django", "flask", "javascript", "react", "rest api"} & skill_set:
         return "Software Engineer"
     if {"vlsi", "embedded systems", "pcb design"} & skill_set:
         return "Embedded Systems Engineer"

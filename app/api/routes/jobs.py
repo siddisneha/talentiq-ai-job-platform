@@ -8,7 +8,7 @@ from app.db.database import get_db
 from app.models.job import Job
 from app.models.user import User
 from app.schemas.job import JobCreate, JobRead, JobUpdate
-from app.services.role_packs import BRANCH_ROLE_PACKS, normalize_branch_key
+from app.services.role_packs import BRANCH_ROLE_PACKS, branch_search_terms, normalize_branch_key
 
 router = APIRouter()
 
@@ -68,7 +68,7 @@ def list_jobs(
     if branch:
         branch_pack = BRANCH_ROLE_PACKS.get(normalize_branch_key(branch))
         if branch_pack:
-            branch_terms = branch_pack["roles"]
+            branch_terms = branch_search_terms(branch)
             query = query.filter(
                 or_(
                     *(
@@ -76,7 +76,6 @@ def list_jobs(
                         for term in branch_terms
                         for condition in (
                             Job.title.ilike(f"%{term}%"),
-                            Job.description.ilike(f"%{term}%"),
                             Job.skills.ilike(f"%{term}%"),
                         )
                     )

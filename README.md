@@ -1,6 +1,6 @@
-# Job Portal FastAPI Backend
+# Avenir FastAPI Backend
 
-FastAPI backend for a dynamic job portal with user accounts, job aggregation, dashboards, saved jobs, applications, alerts, analytics, recommendations, and resume/job matching.
+FastAPI backend for Avenir, a dynamic job portal with user accounts, job aggregation, dashboards, saved jobs, applications, alerts, analytics, recommendations, and resume/job matching.
 
 ## Phase 1 Foundation Scope
 

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: job-portal-api
+    name: avenir-api
     runtime: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
@@ -13,8 +13,8 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: "http://localhost:5173,http://127.0.0.1:5173"
+        value: "https://avenir.app,https://www.avenir.app,http://localhost:5173,http://127.0.0.1:5173"
 
 databases:
-  - name: job-portal-db
+  - name: avenir-db
     plan: free

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "Job Portal API"
+    app_name: str = "Avenir API"
     database_url: str = "sqlite:///./job_portal.db"
     database_url_fallback: str | None = None
     secret_key: str = "change-this-secret-before-deployment"

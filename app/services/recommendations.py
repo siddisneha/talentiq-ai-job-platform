@@ -2,7 +2,7 @@ import re
 
 from app.models.job import Job
 from app.models.user import User
-from app.services.role_packs import BRANCH_ROLE_PACKS, normalize_branch_key
+from app.services.role_packs import BRANCH_ROLE_PACKS, branch_search_terms, normalize_branch_key
 
 
 BRANCH_SKILLS = {
@@ -43,7 +43,6 @@ BRANCH_SKILLS = {
     },
     "ece": {
         "embedded c",
-        "c++",
         "microcontrollers",
         "arduino",
         "raspberry pi",
@@ -120,6 +119,13 @@ BRANCH_SKILLS = {
         "agile",
         "product analytics",
     },
+}
+
+BRANCH_CORE_TERMS = {
+    "ece": {"ece", "electronics", "semiconductor", "vlsi", "embedded"},
+    "eee": {"eee", "electrical", "power systems", "power electronics"},
+    "mechanical": {"mechanical", "manufacturing", "thermal", "hvac"},
+    "civil": {"civil", "construction", "structural"},
 }
 
 COMMON_SKILLS = {
@@ -211,17 +217,79 @@ def job_text(job: Job) -> str:
     return " ".join([job.title or "", job.company or "", job.skills or "", job.description or ""]).lower()
 
 
+def job_focus_text(job: Job) -> str:
+    return " ".join([job.title or "", job.skills or ""]).lower()
+
+
+def term_matches(text: str, term: str) -> bool:
+    return re.search(rf"(?<![a-z0-9+#.]){re.escape(term)}(?![a-z0-9+#.])", text) is not None
+
+
+def branch_relevance_score(job: Job, user: User, resume_skills: set[str] | None = None) -> int:
+    branch_key = user_branch_key(user)
+    if not branch_key:
+        return 0
+    text = job_focus_text(job)
+    title = (job.title or "").lower()
+    if branch_key in {"ece", "eee", "mechanical", "civil"} and any(
+        term_matches(title, term)
+        for term in (
+            "ai",
+            "analyst",
+            "backend",
+            "data",
+            "datos",
+            "developer",
+            "full-stack",
+            "inference",
+            "lead full-stack",
+            "operaciones",
+            "operations",
+            "python software",
+            "qa",
+            "rails",
+            "software engineer",
+            "tech lead",
+            "web",
+        )
+    ):
+        if not any(
+            term_matches(title, term)
+            for term in (
+                "civil",
+                "electrical",
+                "electronics",
+                "embedded",
+                "fpga",
+                "hardware design",
+                "mechanical",
+                "power systems",
+                "rtl",
+                "semiconductor",
+                "vlsi",
+            )
+        ):
+            return 0
+    role_terms = [role.lower() for role in branch_roles(branch_key)]
+    search_terms = [term.lower() for term in branch_search_terms(branch_key)]
+    job_skills = set(extract_known_skills(text)).union(split_skills(job.skills or ""))
+    user_terms = split_skills(user.skills or "").union(resume_skills or set())
+    relevance = 0
+    relevance += sum(1 for term in BRANCH_CORE_TERMS.get(branch_key, set()) if term_matches(title, term)) * 3
+    relevance += sum(1 for term in role_terms if term_matches(text, term)) * 3
+    relevance += sum(1 for term in search_terms if term_matches(text, term)) * 2
+    relevance += len(job_skills.intersection(branch_skills(branch_key))) * 2
+    relevance += len(job_skills.intersection(user_terms)) * 3
+    return relevance
+
+
 def job_matches_profile_focus(job: Job, user: User) -> bool:
-    text = job_text(job)
+    text = job_focus_text(job)
     preferred_role = (user.preferred_role or "").strip().lower()
-    if preferred_role and preferred_role in text:
+    if preferred_role and term_matches(text, preferred_role):
         return True
 
-    branch_key = user_branch_key(user)
-    role_terms = [role.lower() for role in branch_roles(branch_key)]
-    job_skills = set(extract_known_skills(text))
-    skill_terms = branch_skills(branch_key)
-    return any(term in text for term in role_terms) or bool(job_skills.intersection(skill_terms))
+    return branch_relevance_score(job, user) >= 3
 
 
 def focused_jobs_for_user(jobs: list[Job], user: User) -> list[Job]:
@@ -271,6 +339,11 @@ def score_job_for_user(job: Job, user: User, resume_skills: set[str] | None = No
     if branch_key and job_matches_profile_focus(job, user):
         score += 28
         reasons.append(f"Matches {BRANCH_ROLE_PACKS[branch_key]['label']} profile")
+    elif branch_key:
+        relevance = branch_relevance_score(job, user, resume_skills)
+        if relevance:
+            score += min(relevance * 4, 28)
+            reasons.append(f"Related to {BRANCH_ROLE_PACKS[branch_key]['label']} profile")
 
     if not reasons:
         score = 10

@@ -21,7 +21,7 @@ def public_jobs(
     db: Session = Depends(get_db),
 ):
     from app.api.routes.jobs import COUNTRY_LOCATION_ALIASES
-    from app.services.role_packs import BRANCH_ROLE_PACKS, normalize_branch_key
+    from app.services.role_packs import BRANCH_ROLE_PACKS, branch_search_terms, normalize_branch_key
     from sqlalchemy import or_
 
     query = real_job_query(db)
@@ -38,7 +38,7 @@ def public_jobs(
     if branch:
         branch_pack = BRANCH_ROLE_PACKS.get(normalize_branch_key(branch))
         if branch_pack:
-            branch_terms = branch_pack["roles"]
+            branch_terms = branch_search_terms(branch)
             query = query.filter(
                 or_(
                     *(
@@ -46,7 +46,6 @@ def public_jobs(
                         for term in branch_terms
                         for condition in (
                             Job.title.ilike(f"%{term}%"),
-                            Job.description.ilike(f"%{term}%"),
                             Job.skills.ilike(f"%{term}%"),
                         )
                     )

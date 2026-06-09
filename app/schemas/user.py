@@ -53,8 +53,39 @@ class UserUpdate(BaseModel):
     resume_url: str | None = None
 
 
+class UserRoleUpdate(BaseModel):
+    role: str
+
+
 class UserRead(UserBase):
     id: int
+    resume_url: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminUserRead(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    role: str
+    phone: str | None = None
+    headline: str | None = None
+    summary: str | None = None
+    skills: str | None = None
+    experience_years: str | None = None
+    education: str | None = None
+    current_location: str | None = None
+    preferred_location: str | None = None
+    preferred_branch: str | None = None
+    preferred_role: str | None = None
+    preferred_job_type: str | None = None
+    expected_salary: str | None = None
+    notice_period: str | None = None
+    linkedin_url: str | None = None
+    github_url: str | None = None
+    portfolio_url: str | None = None
     resume_url: str | None
     created_at: datetime
 

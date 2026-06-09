@@ -8,7 +8,7 @@ from app.services.ingestion import create_jobs_from_payloads, fetch_role_pack_jo
 from app.services.role_packs import expand_roles_for_branches
 
 DEFAULT_ROLES = []
-DEFAULT_BRANCHES = ["data_ai", "cse_it", "ece", "eee"]
+DEFAULT_BRANCHES = ["data_ai", "cse_it", "ece", "eee", "mechanical", "civil", "business"]
 DEFAULT_COUNTRIES = ["India", "Remote", "United States", "United Kingdom", "Canada"]
 
 
@@ -26,7 +26,7 @@ def import_jobs(
         importer = db.query(User).filter(User.email == posted_by_email).first()
         if importer is None:
             importer = User(
-                full_name="TalentIQ Importer",
+                full_name="Avenir Importer",
                 email=posted_by_email,
                 hashed_password="external-import-account",
                 role="admin",
@@ -56,12 +56,12 @@ def parse_csv(value: str) -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Import fresh external jobs into TalentIQ.")
+    parser = argparse.ArgumentParser(description="Import fresh external jobs into Avenir.")
     parser.add_argument("--roles", default=",".join(DEFAULT_ROLES))
     parser.add_argument("--branches", default=",".join(DEFAULT_BRANCHES))
     parser.add_argument("--countries", default=",".join(DEFAULT_COUNTRIES))
     parser.add_argument("--limit-per-search", type=int, default=50)
-    parser.add_argument("--posted-by-email", default="imports@talentiq.local")
+    parser.add_argument("--posted-by-email", default="imports@avenir.local")
     args = parser.parse_args()
 
     created_count, skipped_count = import_jobs(

@@ -13,6 +13,25 @@ class SalaryRangeInsight(BaseModel):
     average_maximum: float | None
 
 
+class ForecastPoint(BaseModel):
+    date: str
+    predicted_count: int
+
+
+class JobTrendPrediction(BaseModel):
+    forecast: list[ForecastPoint]
+    trend_direction: str
+    top_growth_roles: list[NamedCount]
+    top_growth_skills: list[NamedCount]
+
+
+class EngagementPrediction(BaseModel):
+    score: float
+    segment: str
+    profile_completion: int
+    next_action: str
+
+
 class AnalyticsSummary(BaseModel):
     total_users: int
     active_jobs: int
@@ -27,6 +46,8 @@ class AnalyticsSummary(BaseModel):
     application_statuses: list[NamedCount]
     user_skills: list[str]
     missing_skills: list[str]
+    job_trend_prediction: JobTrendPrediction
+    engagement_prediction: EngagementPrediction
 
 
 class RecruiterMetric(BaseModel):

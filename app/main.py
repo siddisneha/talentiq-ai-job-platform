@@ -73,17 +73,17 @@ async def _run_daily_import_loop() -> None:
     while True:
         await asyncio.sleep(_seconds_until_next_run())
         try:
-            logger.info("Starting scheduled TalentIQ job import")
+            logger.info("Starting scheduled Avenir job import")
             created_count, skipped_count = await asyncio.to_thread(
                 import_jobs,
                 [],
                 DEFAULT_BRANCHES,
                 DEFAULT_COUNTRIES,
                 50,
-                "imports@talentiq.local",
+                "imports@avenir.local",
             )
             logger.info(
-                "Scheduled TalentIQ job import finished: created=%s skipped=%s",
+                "Scheduled Avenir job import finished: created=%s skipped=%s",
                 created_count,
                 skipped_count,
             )
@@ -94,7 +94,7 @@ async def _run_daily_import_loop() -> None:
                     .values(is_active=False)
                 )
         except Exception:
-            logger.exception("Scheduled TalentIQ job import failed")
+            logger.exception("Scheduled Avenir job import failed")
 
 
 @app.on_event("startup")

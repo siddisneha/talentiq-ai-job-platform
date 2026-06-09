@@ -1,4 +1,5 @@
 from urllib.parse import urljoin
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from bs4 import BeautifulSoup
@@ -71,6 +72,7 @@ def create_jobs_from_payloads(
             continue
 
         data = job_in.model_dump()
+        _clip_job_payload(data)
         if source:
             data["source_id"] = source.id
             data["source_name"] = source.name
@@ -81,6 +83,22 @@ def create_jobs_from_payloads(
     for job in jobs:
         db.refresh(job)
     return jobs, skipped_count
+
+
+def _clip_job_payload(data: dict) -> None:
+    limits = {
+        "title": 160,
+        "company": 160,
+        "location": 700,
+        "job_type": 80,
+        "source_url": 1000,
+        "external_id": 500,
+        "source_name": 160,
+    }
+    for field, limit in limits.items():
+        value = data.get(field)
+        if isinstance(value, str) and len(value) > limit:
+            data[field] = value[:limit]
 
 
 def fetch_api_jobs(url: str) -> list[JobCreate]:
@@ -326,25 +344,35 @@ def fetch_role_pack_jobs(
 
     payloads = []
     seen_keys = set()
-    for role in roles:
-        for country in countries:
-            for provider in providers:
-                try:
-                    provider_jobs = fetch_provider_jobs(
-                        provider,
-                        query=role,
-                        country=country,
-                        limit=limit_per_search,
-                    )
-                except Exception:
-                    continue
 
-                for job in provider_jobs:
-                    key = job.source_url or f"{job.source_name}:{job.external_id}"
-                    if key in seen_keys:
-                        continue
-                    seen_keys.add(key)
-                    payloads.append(job)
+    search_terms = [
+        (role, country, provider)
+        for role in roles
+        for country in countries
+        for provider in providers
+    ]
+
+    def _fetch(search_term: tuple[str, str, str]) -> list[JobCreate]:
+        role, country, provider = search_term
+        try:
+            return fetch_provider_jobs(
+                provider,
+                query=role,
+                country=country,
+                limit=limit_per_search,
+            )
+        except Exception:
+            return []
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = [executor.submit(_fetch, search_term) for search_term in search_terms]
+        for future in as_completed(futures):
+            for job in future.result():
+                key = job.source_url or f"{job.source_name}:{job.external_id}"
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                payloads.append(job)
     return payloads
 
 
@@ -381,3 +409,5 @@ def scrape_jobs(url: str, selectors: ScrapeSelectors) -> list[JobCreate]:
 def _text(card, selector: str) -> str:
     element = card.select_one(selector)
     return element.get_text(" ", strip=True) if element else ""
+
+

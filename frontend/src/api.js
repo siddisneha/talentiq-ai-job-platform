@@ -29,6 +29,8 @@ export const api = {
     });
   },
   me: () => request("/api/users/me"),
+  users: () => request("/api/users/"),
+  updateUserRole: (id, role) => request(`/api/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
   savedResume: () => request("/api/users/me/resume/parsed"),
   updateMe: (payload) => request("/api/users/me", { method: "PATCH", body: JSON.stringify(payload) }),
   uploadResume: (file) => {
@@ -40,6 +42,7 @@ export const api = {
   publicJobs: (params) => request(`/api/public/jobs?${new URLSearchParams(params)}`),
   myJobs: () => request("/api/jobs/mine"),
   createJob: (payload) => request("/api/jobs/", { method: "POST", body: JSON.stringify(payload) }),
+  updateJob: (id, payload) => request(`/api/jobs/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteJob: (id) => request(`/api/jobs/${id}`, { method: "DELETE" }),
   importProviderJobs: (provider, payload) =>
     request(`/api/ingestion/providers/${provider}`, { method: "POST", body: JSON.stringify(payload) }),
@@ -49,6 +52,7 @@ export const api = {
   apply: (payload) => request("/api/applications/", { method: "POST", body: JSON.stringify(payload) }),
   updateApplication: (id, payload) =>
     request(`/api/applications/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteApplication: (id) => request(`/api/applications/${id}`, { method: "DELETE" }),
   employerApplications: () => request("/api/applications/employer"),
   savedJobs: () => request("/api/saved-jobs/"),
   applications: () => request("/api/applications/"),
@@ -59,8 +63,55 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ resume_text: resumeText }),
     }),
+  aiResumeReview: (resumeText) =>
+    request("/api/recommendations/ai/resume-review", {
+      method: "POST",
+      body: JSON.stringify({ resume_text: resumeText }),
+    }),
+  aiSkillGap: (jobId, resumeText) =>
+    request("/api/recommendations/ai/skill-gap", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId, resume_text: resumeText }),
+    }),
+  aiMatchExplanation: (jobId, resumeText) =>
+    request("/api/recommendations/ai/match-explanation", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId, resume_text: resumeText }),
+    }),
+  aiInterviewQuestions: (jobId, resumeText) =>
+    request("/api/recommendations/ai/interview-questions", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId, resume_text: resumeText }),
+    }),
+  aiCareerCoach: (question, resumeText) =>
+    request("/api/recommendations/ai/career-coach", {
+      method: "POST",
+      body: JSON.stringify({ question, resume_text: resumeText }),
+    }),
+  aiLearningRoadmap: (resumeText) =>
+    request("/api/recommendations/ai/learning-roadmap", {
+      method: "POST",
+      body: JSON.stringify({ resume_text: resumeText }),
+    }),
+  aiJobSimplifier: (jobId) =>
+    request("/api/recommendations/ai/job-simplifier", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId }),
+    }),
+  aiCoverLetter: (jobId, resumeText) =>
+    request("/api/recommendations/ai/cover-letter", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId, resume_text: resumeText }),
+    }),
+  aiResumeTailoring: (jobId, resumeText) =>
+    request("/api/recommendations/ai/resume-tailoring", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId, resume_text: resumeText }),
+    }),
+  aiRecruiterSummary: (applicationId) => request(`/api/recommendations/ai/recruiter/applications/${applicationId}`),
   analytics: () => request("/api/analytics/summary"), // this is calling the backend get/api/analytics/summary then the func in that runs 
   recruiterAnalytics: () => request("/api/analytics/recruiter"),
+  powerBiDataset: () => request("/api/analytics/powerbi"),
   alerts: () => request("/api/alerts/"),
   createAlert: (payload) => request("/api/alerts/", { method: "POST", body: JSON.stringify(payload) }),
   alertMatches: (id) => request(`/api/alerts/${id}/matches`),

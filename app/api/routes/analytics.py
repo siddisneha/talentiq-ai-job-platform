@@ -20,6 +20,11 @@ from app.services.recommendations import (
     skills_for_user_focus,
     split_skills,
 )
+from app.services.data_science import (
+    build_powerbi_dataset,
+    predict_job_trends,
+    predict_user_engagement,
+)
 
 router = APIRouter()
 
@@ -134,6 +139,10 @@ def analytics_summary(
     user_skills = split_skills(current_user.skills or "")
     market_skills = [item["name"] for item in _top(skill_gap_counter, limit=12)]
     missing_skills = [skill for skill in market_skills if skill not in user_skills]
+    user_applications = db.query(Application).filter(Application.user_id == current_user.id).all()
+    user_saved_jobs = db.query(SavedJob).filter(SavedJob.user_id == current_user.id).all()
+    user_activity_logs = db.query(ActivityLog).filter(ActivityLog.user_id == current_user.id).all()
+    focused_count = len(skill_gap_jobs)
 
     return {
         "total_users": db.query(User).count(),
@@ -164,7 +173,34 @@ def analytics_summary(
 
         "user_skills": sorted(user_skills),
         "missing_skills": missing_skills,
+        "job_trend_prediction": predict_job_trends(jobs),
+        "engagement_prediction": predict_user_engagement(
+            current_user,
+            user_applications,
+            user_saved_jobs,
+            user_activity_logs,
+            focused_count,
+        ),
     }
+
+
+@router.get("/powerbi")
+def powerbi_dataset(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    jobs_query = db.query(Job).filter(Job.is_active.is_(True)).order_by(Job.created_at.desc()).limit(1000)
+    jobs = jobs_query.all()
+    applications = db.query(Application).order_by(Application.created_at.desc()).limit(1000).all()
+    saved_jobs = db.query(SavedJob).order_by(SavedJob.created_at.desc()).limit(1000).all()
+    activity_logs = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(1000).all()
+    dataset = build_powerbi_dataset(jobs, applications, saved_jobs, activity_logs)
+    dataset["metadata"] = {
+        "generated_for_user_id": current_user.id,
+        "tables": list(dataset.keys()),
+        "power_bi_note": "Use this JSON endpoint as a Power BI Web data source.",
+    }
+    return dataset
 
 
 @router.get("/recruiter", response_model=RecruiterDashboardSummary)
