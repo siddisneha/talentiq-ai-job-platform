@@ -3399,6 +3399,127 @@ h2 {
   }
 }
 
+/* Signed-in workspace layout lock. Keep app pages independent from public landing overrides. */
+.content {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.logged-home,
+.logged-home * {
+  min-width: 0;
+}
+
+.logged-home .public-hero-avenir {
+  overflow: hidden;
+  padding: clamp(18px, 2vw, 28px) !important;
+}
+
+.avenir-home-hero {
+  display: grid;
+  gap: clamp(18px, 2vw, 28px);
+  grid-template-columns: 1fr;
+  min-height: 0;
+  width: 100%;
+}
+
+.signedin-landing-hero {
+  align-items: center;
+  display: grid;
+  gap: clamp(20px, 3vw, 36px);
+  grid-template-columns: minmax(0, 0.92fr) minmax(280px, 0.72fr);
+  min-height: 420px;
+  padding: clamp(24px, 4vw, 48px);
+  width: 100%;
+}
+
+.signedin-landing-hero .hero-title-stage h1 {
+  font-size: clamp(56px, 7vw, 104px) !important;
+  line-height: 0.92 !important;
+  margin-bottom: 12px !important;
+}
+
+.signedin-landing-hero .hero-title-stage p {
+  font-size: clamp(17px, 1.6vw, 22px) !important;
+  line-height: 1.45 !important;
+  max-width: 560px !important;
+}
+
+.signedin-landing-hero .hero-brand-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.signedin-landing-hero .avenir-hero-portrait {
+  justify-self: stretch;
+  min-height: 360px;
+  width: 100%;
+}
+
+.home-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-insight-grid .panel {
+  min-width: 0;
+}
+
+.home-chart-box {
+  overflow: hidden;
+}
+
+.hero-opportunity-shell {
+  border-radius: 8px;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.hero-opportunity-shell .hero-role-rail {
+  min-height: 230px !important;
+}
+
+.hero-opportunity-shell .hero-role-card {
+  left: 0;
+  right: 0;
+}
+
+@media (max-width: 1180px) {
+  .signedin-landing-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .signedin-landing-hero .avenir-hero-portrait {
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 900px) {
+  .home-insight-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .logged-home .public-hero-avenir {
+    padding: 14px !important;
+  }
+
+  .signedin-landing-hero {
+    padding: 20px;
+  }
+
+  .signedin-landing-hero .hero-title-stage h1 {
+    font-size: clamp(44px, 16vw, 68px) !important;
+  }
+
+  .signedin-landing-hero .avenir-hero-portrait {
+    min-height: 260px;
+  }
+}
+
 /* True final lock: these rules intentionally sit last. */
 .public-hero-avenir .avenir-landing-hero {
   grid-template-columns: minmax(300px, 0.52fr) minmax(560px, 1.18fr) !important;

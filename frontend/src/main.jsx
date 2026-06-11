@@ -19,7 +19,7 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { api } from "./api";
+import { api, assetUrl } from "./api";
 import "./styles.css";
 import{
   BarChart,
@@ -663,6 +663,11 @@ function App() {
   }
 
   async function uploadResume(event) {
+    if (!isCandidate(user)) {
+      setMessage("Resume upload is only available for candidate accounts.");
+      event.target.value = "";
+      return;
+    }
     const file = event.target.files?.[0];
     if (!file) return;
     const result = await api.uploadResume(file);
@@ -694,6 +699,11 @@ function App() {
     () => Math.max(...(analytics?.top_skills || []).map((item) => item.count), 1),
     [analytics],
   );
+
+  function openSignedInHome() {
+    setActiveView("home");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   if (!token) {
     if (applyTarget || authIntent) {
@@ -847,7 +857,7 @@ function App() {
     <main className="app-shell">
       <RoleOptions />
       <aside className="sidebar">
-        <button className="brand-row brand-row-button" type="button" onClick={() => setActiveView("home")}>
+        <button className="brand-row brand-row-button" type="button" onClick={openSignedInHome} aria-label="Open Avenir home">
           <BriefcaseBusiness size={28} />
           <div>
             <strong>Avenir</strong>
@@ -903,7 +913,7 @@ function App() {
           <section className="logged-home">
             <header className="public-hero public-hero-avenir">
               <div className="avenir-home-hero">
-                <div className="avenir-landing-hero">
+                <div className="signedin-landing-hero">
                   <div className="hero-title-stage">
                     <span className="hero-kicker">Welcome, {user?.full_name || "there"}.</span>
                     <h1>Avenir</h1>
@@ -1825,41 +1835,42 @@ function App() {
           <section className="profile-workspace">
             <Panel title={isCandidate(user) ? "Candidate Details" : "Employer Details"} icon={<UserRound size={20} />}>
               <form className="profile-form" onSubmit={updateProfile}>
-                <label>Full name<input name="full_name" defaultValue={user?.full_name || ""} placeholder="Full name" /></label>
+                <label>{canManageJobs(user) ? "Company / recruiter name" : "Full name"}<input name="full_name" defaultValue={user?.full_name || ""} placeholder={canManageJobs(user) ? "Company or recruiter name" : "Full name"} /></label>
                 <label>Phone<input name="phone" defaultValue={user?.phone || ""} placeholder="Phone number" /></label>
-                <label className="wide-field">Headline<input name="headline" defaultValue={user?.headline || ""} placeholder="Backend Developer | FastAPI | React" /></label>
-                <label className="wide-field">Professional summary<textarea name="summary" defaultValue={user?.summary || ""} placeholder="Short profile summary, achievements, or career objective" /></label>
-                <label className="wide-field">Skills<input name="skills" defaultValue={user?.skills || ""} placeholder="Python, FastAPI, React, SQL" /></label>
-                <label>Experience<input name="experience_years" defaultValue={user?.experience_years || ""} placeholder="e.g. 2 years" /></label>
-                <label>Current location<input name="current_location" defaultValue={user?.current_location || ""} placeholder="e.g. Bengaluru" /></label>
-                <label>Branch / domain<select name="preferred_branch" defaultValue={user?.preferred_branch || ""}>
+                <label className="wide-field">Headline<input name="headline" defaultValue={user?.headline || ""} placeholder={canManageJobs(user) ? "Hiring for engineering, analytics, and operations roles" : "Backend Developer | FastAPI | React"} /></label>
+                <label className="wide-field">{canManageJobs(user) ? "Company summary" : "Professional summary"}<textarea name="summary" defaultValue={user?.summary || ""} placeholder={canManageJobs(user) ? "Briefly describe your company, hiring needs, and culture" : "Short profile summary, achievements, or career objective"} /></label>
+                <label className="wide-field">{canManageJobs(user) ? "Hiring focus" : "Skills"}<input name="skills" defaultValue={user?.skills || ""} placeholder={canManageJobs(user) ? "Python, Data, Frontend, VLSI" : "Python, FastAPI, React, SQL"} /></label>
+                {isCandidate(user) && <label>Experience<input name="experience_years" defaultValue={user?.experience_years || ""} placeholder="e.g. 2 years" /></label>}
+                <label>{canManageJobs(user) ? "Company location" : "Current location"}<input name="current_location" defaultValue={user?.current_location || ""} placeholder="e.g. Bengaluru" /></label>
+                {isCandidate(user) && <label>Branch / domain<select name="preferred_branch" defaultValue={user?.preferred_branch || ""}>
                   <option value="">Choose branch</option>
                   {branchOptions.map((branch) => (
                     <option key={branch.value} value={branch.value}>{branch.label}</option>
                   ))}
-                </select></label>
-                <label>Preferred role<input name="preferred_role" list="role-options" defaultValue={user?.preferred_role || ""} placeholder="Data Analyst" /></label>
-                <label>Preferred location<input name="preferred_location" defaultValue={user?.preferred_location || ""} placeholder="Remote, Bengaluru" /></label>
-                <label>Preferred job type<input name="preferred_job_type" defaultValue={user?.preferred_job_type || ""} placeholder="Full-time, Internship" /></label>
-                <label>Expected salary<input name="expected_salary" defaultValue={user?.expected_salary || ""} placeholder="e.g. 8 LPA" /></label>
-                <label>Notice period<input name="notice_period" defaultValue={user?.notice_period || ""} placeholder="e.g. Immediate, 30 days" /></label>
+                </select></label>}
+                {isCandidate(user) && <label>Preferred role<input name="preferred_role" list="role-options" defaultValue={user?.preferred_role || ""} placeholder="Data Analyst" /></label>}
+                {isCandidate(user) && <label>Preferred location<input name="preferred_location" defaultValue={user?.preferred_location || ""} placeholder="Remote, Bengaluru" /></label>}
+                {isCandidate(user) && <label>Preferred job type<input name="preferred_job_type" defaultValue={user?.preferred_job_type || ""} placeholder="Full-time, Internship" /></label>}
+                {isCandidate(user) && <label>Expected salary<input name="expected_salary" defaultValue={user?.expected_salary || ""} placeholder="e.g. 8 LPA" /></label>}
+                {isCandidate(user) && <label>Notice period<input name="notice_period" defaultValue={user?.notice_period || ""} placeholder="e.g. Immediate, 30 days" /></label>}
                 <label>LinkedIn<input name="linkedin_url" defaultValue={user?.linkedin_url || ""} placeholder="https://linkedin.com/in/..." /></label>
-                <label>GitHub<input name="github_url" defaultValue={user?.github_url || ""} placeholder="https://github.com/..." /></label>
-                <label className="wide-field">Portfolio<input name="portfolio_url" defaultValue={user?.portfolio_url || ""} placeholder="https://your-portfolio.com" /></label>
-                <label className="wide-field">Education<textarea name="education" defaultValue={user?.education || ""} placeholder="Degree, institution, graduation year, certifications" /></label>
+                {isCandidate(user) && <label>GitHub<input name="github_url" defaultValue={user?.github_url || ""} placeholder="https://github.com/..." /></label>}
+                <label className="wide-field">{canManageJobs(user) ? "Company website" : "Portfolio"}<input name="portfolio_url" defaultValue={user?.portfolio_url || ""} placeholder={canManageJobs(user) ? "https://company.com" : "https://your-portfolio.com"} /></label>
+                {isCandidate(user) && <label className="wide-field">Education<textarea name="education" defaultValue={user?.education || ""} placeholder="Degree, institution, graduation year, certifications" /></label>}
                 <div className="profile-save-bar">
                   <button type="submit">Save Profile</button>
                   {message === "Profile saved successfully" && <span>Saved</span>}
                 </div>
               </form>
             </Panel>
+            {isCandidate(user) && (
             <section className="profile-side">
               <Panel title="Resume" icon={<Upload size={20} />}>
               <label className="upload-box">
                 <Upload size={22} />
                 <span>Upload resume file</span>
-                <small>PDF, DOC, DOCX, or TXT</small>
-                <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={uploadResume} />
+                <small>PDF, DOCX, or TXT</small>
+                <input type="file" accept=".pdf,.docx,.txt" onChange={uploadResume} />
               </label>
               {resumeUploadResult && (
                 <div className="resume-result">
@@ -1870,12 +1881,13 @@ function App() {
                 </div>
               )}
               {user?.resume_url && (
-                <a className="resume-link" href={`http://127.0.0.1:8000${user.resume_url}`} target="_blank" rel="noreferrer">
+                <a className="resume-link" href={assetUrl(user.resume_url)} target="_blank" rel="noreferrer">
                   <Link size={16} /> View uploaded resume
                 </a>
               )}
               </Panel>
             </section>
+            )}
           </section>
         )}
       </section>
@@ -1982,7 +1994,7 @@ function viewTitle(activeView, user) {
     tracker: "Applications & Saved Jobs",
     alerts: "Job Alerts",
     "ai-career": "AI Career Studio",
-    profile: "Profile & Resume",
+    profile: canManageJobs(user) ? "Employer Profile" : "Profile & Resume",
   };
   return titles[activeView];
 }
@@ -2215,7 +2227,7 @@ function EmployerApplicationRow({ application, onStatusChange, onRecruiterAI, on
         {application.cover_letter && <small>{application.cover_letter}</small>}
       </div>
       {application.resume_url && (
-        <a className="icon-link" href={`http://127.0.0.1:8000${application.resume_url}`} target="_blank" rel="noreferrer">
+        <a className="icon-link" href={assetUrl(application.resume_url)} target="_blank" rel="noreferrer">
           <FileText size={16} /> Resume
         </a>
       )}

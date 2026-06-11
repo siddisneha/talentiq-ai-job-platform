@@ -1,5 +1,11 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
+export function assetUrl(path) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 async function request(path, options = {}) {
   const token = localStorage.getItem("job_portal_token");
   const headers = {
@@ -13,9 +19,26 @@ async function request(path, options = {}) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.detail || "Request failed");
+    throw new Error(formatApiError(data.detail) || "Request failed");
   }
   return data;
+}
+
+function formatApiError(detail) {
+  if (!detail) return "";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        const field = Array.isArray(item?.loc) ? item.loc.filter((part) => part !== "body").join(".") : "";
+        return [field, item?.msg].filter(Boolean).join(": ");
+      })
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (typeof detail === "object") return detail.message || detail.msg || JSON.stringify(detail);
+  return String(detail);
 }
 
 export const api = {
