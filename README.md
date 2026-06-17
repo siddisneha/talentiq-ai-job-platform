@@ -17,7 +17,7 @@ This backend covers the SOP foundation setup:
 - FastAPI
 - SQLAlchemy
 - SQLite for local development
-- PostgreSQL-ready deployment support
+- MySQL-ready deployment support through `DATABASE_URL`
 - JWT authentication
 - Pydantic settings
 - BeautifulSoup and Requests for job-source ingestion
@@ -115,6 +115,10 @@ The backend includes Render-ready files:
 
 - `render.yaml`
 - `Procfile`
-- PostgreSQL driver in `requirements.txt`
+- MySQL driver in `requirements.txt`
 
-For Render, create a web service from the GitHub repository and use the included `render.yaml`. Render will create a PostgreSQL database and provide `DATABASE_URL` automatically.
+For Render, create a web service from the GitHub repository and use the included `render.yaml`. Add your hosted MySQL connection string as the `DATABASE_URL` environment variable, for example:
+
+```env
+DATABASE_URL=mysql+pymysql://USER:PASSWORD@HOST:3306/avenir
+```

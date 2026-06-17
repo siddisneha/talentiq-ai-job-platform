@@ -1,5 +1,6 @@
 from urllib.parse import urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import xml.etree.ElementTree as ET
 
 import requests
 from bs4 import BeautifulSoup
@@ -134,7 +135,7 @@ def fetch_provider_jobs(
     country: str | None = None,
     limit: int = 25,
 ) -> list[JobCreate]:
-    normalized_provider = provider.lower()
+    normalized_provider = provider.lower().replace(".", "").replace("-", "").replace(" ", "")
     if normalized_provider == "remotive":
         return fetch_remotive_jobs(query=query, category=category, limit=limit)
     if normalized_provider == "arbeitnow":
@@ -143,7 +144,19 @@ def fetch_provider_jobs(
         return fetch_himalayas_jobs(query=query, country=country, limit=limit)
     if normalized_provider == "adzuna":
         return fetch_adzuna_jobs(query=query, country=country, limit=limit)
-    raise ValueError("Unsupported provider. Use remotive, arbeitnow, himalayas, or adzuna.")
+    if normalized_provider == "themuse":
+        return fetch_themuse_jobs(query=query, limit=limit)
+    if normalized_provider == "workingnomads":
+        return fetch_workingnomads_jobs(query=query, limit=limit)
+    if normalized_provider == "weworkremotely":
+        return fetch_weworkremotely_jobs(query=query, limit=limit)
+    if normalized_provider == "dribbble":
+        return fetch_dribbble_jobs(query=query, limit=limit)
+    if normalized_provider == "pythonorg":
+        return fetch_pythonorg_jobs(query=query, limit=limit)
+    if normalized_provider == "remoteok":
+        return fetch_remoteok_jobs(query=query, limit=limit)
+    raise ValueError(f"Unsupported provider: {provider}")
 
 
 def fetch_remotive_jobs(
@@ -332,13 +345,249 @@ def fetch_adzuna_jobs(
     return jobs
 
 
+def fetch_themuse_jobs(query: str | None = None, limit: int = 25) -> list[JobCreate]:
+    params = {"page": 1}
+    if query:
+        params["category"] = query
+    try:
+        response = requests.get("https://www.themuse.com/api/public/jobs", params=params, timeout=20)
+        response.raise_for_status()
+        raw_jobs = response.json().get("results", [])
+    except Exception:
+        return []
+        
+    jobs = []
+    for item in raw_jobs[:limit]:
+        locations = item.get("locations") or []
+        location = ", ".join(loc.get("name") for loc in locations if loc.get("name")) or "Remote"
+        categories = item.get("categories") or []
+        skills = ", ".join(cat.get("name") for cat in categories if cat.get("name"))
+        jobs.append(
+            JobCreate(
+                title=item["name"],
+                company=item.get("company", {}).get("name") or "Unknown company",
+                location=location,
+                job_type=item.get("type"),
+                skills=skills,
+                description=item.get("contents") or item["name"],
+                source_url=item.get("refs", {}).get("landing_page"),
+                external_id=str(item.get("id") or item.get("refs", {}).get("landing_page")),
+                source_name="The Muse",
+            )
+        )
+    return jobs
+
+
+def fetch_workingnomads_jobs(query: str | None = None, limit: int = 25) -> list[JobCreate]:
+    try:
+        response = requests.get("https://www.workingnomads.com/api/exposed_jobs/", timeout=20)
+        response.raise_for_status()
+        raw_jobs = response.json()
+    except Exception:
+        return []
+        
+    jobs = []
+    normalized_query = query.lower() if query else None
+    for item in raw_jobs:
+        title = item.get("title", "")
+        company = item.get("company", "Unknown company")
+        description = item.get("description", "")
+        tags = item.get("tags", "")
+        
+        if normalized_query:
+            searchable = f"{title} {company} {description} {tags}".lower()
+            if normalized_query not in searchable:
+                continue
+                
+        jobs.append(
+            JobCreate(
+                title=title,
+                company=company,
+                location=item.get("location") or "Remote",
+                job_type=None,
+                skills=tags,
+                description=description or title,
+                source_url=item.get("url"),
+                external_id=str(item.get("id") or item.get("url")),
+                source_name="Working Nomads",
+            )
+        )
+        if len(jobs) >= limit:
+            break
+    return jobs
+
+
+def fetch_remoteok_jobs(query: str | None = None, limit: int = 25) -> list[JobCreate]:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"}
+    params = {}
+    if query:
+        params["tag"] = query
+    try:
+        response = requests.get("https://remoteok.com/api", headers=headers, params=params, timeout=20)
+        response.raise_for_status()
+        raw_jobs = response.json()
+    except Exception:
+        return []
+        
+    jobs = []
+    # RemoteOK's first item is legal/meta info
+    items = raw_jobs[1:] if isinstance(raw_jobs, list) and len(raw_jobs) > 1 else []
+    for item in items[:limit]:
+        tags = item.get("tags") or []
+        jobs.append(
+            JobCreate(
+                title=item.get("position", ""),
+                company=item.get("company") or "Unknown company",
+                location=item.get("location") or "Remote",
+                job_type=None,
+                skills=", ".join(tags) if isinstance(tags, list) else str(tags),
+                description=item.get("description") or item.get("position", ""),
+                source_url=item.get("url"),
+                external_id=str(item.get("id") or item.get("url")),
+                source_name="RemoteOK",
+            )
+        )
+    return jobs
+
+
+def fetch_weworkremotely_jobs(query: str | None = None, limit: int = 25) -> list[JobCreate]:
+    try:
+        response = requests.get("https://weworkremotely.com/remote-jobs.rss", timeout=20)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+        items = root.findall(".//item")
+    except Exception:
+        return []
+        
+    jobs = []
+    normalized_query = query.lower() if query else None
+    
+    for item in items:
+        title_text = item.find("title").text if item.find("title") is not None else ""
+        # WWR titles are usually: "Company: Job Title"
+        company = "Unknown company"
+        title = title_text
+        if ":" in title_text:
+            parts = title_text.split(":", 1)
+            company = parts[0].strip()
+            title = parts[1].strip()
+            
+        link = item.find("link").text if item.find("link") is not None else ""
+        description = item.find("description").text if item.find("description") is not None else title
+        guid = item.find("guid").text if item.find("guid") is not None else link
+        
+        if normalized_query:
+            searchable = f"{title} {company} {description}".lower()
+            if normalized_query not in searchable:
+                continue
+                
+        jobs.append(
+            JobCreate(
+                title=title,
+                company=company,
+                location="Remote",
+                job_type="Full Time",
+                skills="",
+                description=description,
+                source_url=link,
+                external_id=str(guid or link),
+                source_name="WeWorkRemotely",
+            )
+        )
+        if len(jobs) >= limit:
+            break
+    return jobs
+
+
+def fetch_dribbble_jobs(query: str | None = None, limit: int = 25) -> list[JobCreate]:
+    try:
+        response = requests.get("https://dribbble.com/jobs.rss", timeout=20)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+        items = root.findall(".//item")
+    except Exception:
+        return []
+        
+    jobs = []
+    normalized_query = query.lower() if query else None
+    
+    for item in items:
+        title_text = item.find("title").text if item.find("title") is not None else ""
+        link = item.find("link").text if item.find("link") is not None else ""
+        description = item.find("description").text if item.find("description") is not None else title_text
+        guid = item.find("guid").text if item.find("guid") is not None else link
+        
+        if normalized_query and normalized_query not in f"{title_text} {description}".lower():
+            continue
+            
+        jobs.append(
+            JobCreate(
+                title=title_text,
+                company="Dribbble Job",
+                location="Remote",
+                job_type=None,
+                skills="Design, UI/UX",
+                description=description,
+                source_url=link,
+                external_id=str(guid or link),
+                source_name="Dribbble",
+            )
+        )
+        if len(jobs) >= limit:
+            break
+    return jobs
+
+
+def fetch_pythonorg_jobs(query: str | None = None, limit: int = 25) -> list[JobCreate]:
+    try:
+        response = requests.get("https://www.python.org/jobs/feed/rss/", timeout=20)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+        items = root.findall(".//item")
+    except Exception:
+        return []
+        
+    jobs = []
+    normalized_query = query.lower() if query else None
+    
+    for item in items:
+        title_text = item.find("title").text if item.find("title") is not None else ""
+        link = item.find("link").text if item.find("link") is not None else ""
+        description = item.find("description").text if item.find("description") is not None else title_text
+        guid = item.find("guid").text if item.find("guid") is not None else link
+        
+        if normalized_query and normalized_query not in f"{title_text} {description}".lower():
+            continue
+            
+        jobs.append(
+            JobCreate(
+                title=title_text,
+                company="Python.org Job",
+                location="Remote",
+                job_type=None,
+                skills="Python",
+                description=description,
+                source_url=link,
+                external_id=str(guid or link),
+                source_name="Python.org",
+            )
+        )
+        if len(jobs) >= limit:
+            break
+    return jobs
+
+
 def fetch_role_pack_jobs(
     roles: list[str],
     countries: list[str],
     limit_per_search: int = 50,
     include_external_key_providers: bool = True,
 ) -> list[JobCreate]:
-    providers = ["himalayas", "remotive", "arbeitnow"]
+    providers = [
+        "himalayas", "remotive", "arbeitnow", 
+        "themuse", "workingnomads", "weworkremotely", 
+        "dribbble", "pythonorg", "remoteok"
+    ]
     if include_external_key_providers:
         providers.append("adzuna")
 

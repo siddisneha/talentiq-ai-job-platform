@@ -62,4 +62,4 @@ def public_jobs(
         query = query.filter(Job.salary_max >= salary_min)
     if salary_max is not None:
         query = query.filter(Job.salary_min <= salary_max)
-    return query.order_by(Job.created_at.desc()).limit(50).all()
+    return query.order_by(Job.created_at.desc()).limit(150).all()

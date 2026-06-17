@@ -84,6 +84,12 @@ async def upload_resume(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.role != "candidate":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Resume upload is only available for candidate accounts",
+        )
+
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
     extension = Path(file.filename or "resume").suffix.lower()

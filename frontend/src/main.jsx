@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Bell,
@@ -715,19 +715,55 @@ function App() {
           onLogin={handleLogin}
           onRegister={api.register}
           setMessage={setMessage}
+          onCancel={() => {
+            setAuthIntent(null);
+            setApplyTarget(null);
+          }}
         />
       );
     }
     return (
       <main className="public-page public-page-avenir">
         <nav className="public-nav" aria-label="Public navigation">
-            <div className="public-nav-brand">
+            <div className="public-nav-brand" style={{ cursor: "pointer" }} onClick={() => { setPublicPage("home"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
               <span className="public-nav-mark"><BriefcaseBusiness size={18} /></span>
               <strong>Avenir</strong>
             </div>
           <div className="public-nav-links">
-            <a href="#featured-jobs">Jobs</a>
-            <button type="button" onClick={() => setPublicPage("search")}>Search</button>
+            <button 
+              type="button" 
+              onClick={() => { 
+                setPublicPage("home"); 
+                window.setTimeout(() => {
+                  document.getElementById("featured-jobs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 100);
+              }}
+            >
+              Jobs
+            </button>
+            <form 
+              className="nav-search-form"
+              onSubmit={(event) => { 
+                event.preventDefault();
+                const query = event.target.elements.navSearch.value;
+                setFilters({ ...filters, search: query });
+                setPublicPage("search"); 
+                window.setTimeout(() => {
+                  document.getElementById("featured-jobs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  loadJobs({ ...filters, search: query });
+                }, 150);
+              }}
+            >
+              <input 
+                name="navSearch"
+                type="text"
+                placeholder="Search jobs..."
+                className="nav-search-input"
+              />
+              <button type="submit" className="nav-search-icon-btn" aria-label="Search">
+                <Search size={15} />
+              </button>
+            </form>
           </div>
           <div className="public-nav-actions">
             <button className="nav-icon-button" type="button" onClick={() => setAuthIntent("login")}>
@@ -766,7 +802,7 @@ function App() {
                     { id: "sample-2", title: "VLSI Engineer", company: "Avenir Picks", location: "Bengaluru", skills: "VLSI, FPGA, Verilog", job_type: "Full Time" },
                     { id: "sample-3", title: "Civil Site Engineer", company: "Avenir Picks", location: "India", skills: "AutoCAD, Site Execution", job_type: "Full Time" },
                   ]).map((job, index) => (
-                    <article className="hero-role-card" key={job.id} style={{ "--stack-index": index }}>
+                    <article className="hero-role-card" key={job.id} style={{ "--stack-index": index, cursor: "pointer" }} onClick={() => promptLoginForApply(job)}>
                       <div>
                         <span>{job.job_type || "Open role"}</span>
                         <h3>{job.title}</h3>
@@ -782,6 +818,49 @@ function App() {
 
           {publicPage === "home" && (
             <section className="public-feed">
+              <Panel title="Job Search" icon={<Search size={20} />} id="job-search">
+                <form className="filter-grid public-search-form" onSubmit={(event) => {
+                  event.preventDefault();
+                  setPublicPage("search");
+                  window.setTimeout(() => {
+                    document.getElementById("featured-jobs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    loadJobs(filters);
+                  }, 100);
+                }}>
+                  {Object.keys(emptyFilters).map((key) => (
+                    key === "country" ? (
+                      <select
+                        key={key}
+                        value={filters.country}
+                        onChange={(event) => setFilters({ ...filters, country: event.target.value })}
+                      >
+                        <option value="">All countries</option>
+                        {countryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
+                      </select>
+                    ) : key === "job_type" ? (
+                      <select
+                        key={key}
+                        value={filters.job_type}
+                        onChange={(event) => setFilters({ ...filters, job_type: event.target.value })}
+                      >
+                        <option value="">All job types</option>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Internship">Internship</option>
+                        <option value="Part Time">Part Time</option>
+                        <option value="Contract">Contract</option>
+                      </select>
+                    ) : (
+                      <input
+                        key={key}
+                        placeholder={key.replace("_", " ")}
+                        value={filters[key]}
+                        onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}
+                      />
+                    )
+                  ))}
+                  <button type="submit">Search</button>
+                </form>
+              </Panel>
               <Panel title="Suggested For You" icon={<Sparkles size={20} />} id="featured-jobs">
                 <div className="jobs-section-head">
                   <h3>Recommended starting points</h3>
@@ -816,6 +895,18 @@ function App() {
                         <option value="">All countries</option>
                         {countryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
                       </select>
+                    ) : key === "job_type" ? (
+                      <select
+                        key={key}
+                        value={filters.job_type}
+                        onChange={(event) => setFilters({ ...filters, job_type: event.target.value })}
+                      >
+                        <option value="">All job types</option>
+                        <option value="Full Time">Full Time</option>
+                        <option value="Internship">Internship</option>
+                        <option value="Part Time">Part Time</option>
+                        <option value="Contract">Contract</option>
+                      </select>
                     ) : (
                       <input
                         key={key}
@@ -828,22 +919,29 @@ function App() {
                   <button type="submit">Search</button>
                 </form>
               </Panel>
-              <Panel title="Suggested For You" icon={<Sparkles size={20} />} id="featured-jobs">
+              <Panel title="Search Results" icon={<Search size={20} />} id="featured-jobs">
                 <div className="jobs-section-head">
-                  <h3>Recommended starting points</h3>
-                  <span>Showing {Math.min(jobs.length, 4)} suggestions</span>
+                  <h3>Available Opportunities</h3>
+                  <span>Showing {Math.min(jobs.length, 150)} results</span>
                 </div>
                 <div className="job-grid public-job-grid">
-                  {jobs.slice(0, 4).map((job, index) => (
-                    <JobCard
-                      key={job.id}
-                      job={job}
-                      style={{ "--card-index": index }}
-                      onSave={() => setMessage("Login or register to save jobs")}
-                      onApply={() => promptLoginForApply(job)}
-                      canApply
-                    />
-                  ))}
+                  {!jobs.length ? (
+                    <div className="empty-state" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem 1rem" }}>
+                      <strong>No jobs found</strong>
+                      <span>Try adjusting your search filters.</span>
+                    </div>
+                  ) : (
+                    jobs.slice(0, 150).map((job, index) => (
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        style={{ "--card-index": index }}
+                        onSave={() => setMessage("Login or register to save jobs")}
+                        onApply={() => promptLoginForApply(job)}
+                        canApply
+                      />
+                    ))
+                  )}
                 </div>
               </Panel>
             </section>
@@ -1409,6 +1507,18 @@ function App() {
                       {countryOptions.map((country) => (
                         <option key={country} value={country}>{country}</option>
                       ))}
+                    </select>
+                  ) : key === "job_type" ? (
+                    <select
+                      key={key}
+                      value={filters.job_type}
+                      onChange={(event) => setFilters({ ...filters, job_type: event.target.value })}
+                    >
+                      <option value="">All job types</option>
+                      <option value="Full Time">Full Time</option>
+                      <option value="Internship">Internship</option>
+                      <option value="Part Time">Part Time</option>
+                      <option value="Contract">Contract</option>
                     </select>
                   ) : (
                     <input
@@ -2007,9 +2117,11 @@ function AuthScreen({
   publicJobs = [],
   applyTarget = null,
   initialMode = "login",
+  onCancel = () => {},
 }) {
   const [mode, setMode] = useState(initialMode);
   const [revealStage, setRevealStage] = useState("offer");
+  const [userRoleType, setUserRoleType] = useState(applyTarget ? "candidate" : null);
   const featuredJob = publicJobs[0];
   const previewJob = applyTarget || featuredJob;
 
@@ -2043,48 +2155,108 @@ function AuthScreen({
     <main className={`auth-screen auth-screen-avenir auth-screen-split${applyTarget ? " auth-screen-apply" : ""}`}>
       <section className="auth-form-panel">
         <div className="auth-card-shell auth-card-avenir">
-          <div className="auth-brand-header auth-brand-header-avenir">
-            <div className="auth-brand-mark">
-              <BriefcaseBusiness size={20} />
+          {!userRoleType ? (
+            <div className="role-selection-stage">
+              <div className="auth-brand-header auth-brand-header-avenir">
+                <div className="auth-brand-mark">
+                  <BriefcaseBusiness size={20} />
+                </div>
+                <div>
+                  <h2>Welcome to Avenir</h2>
+                  <p>To continue, please choose your career path.</p>
+                </div>
+              </div>
+              <div className="role-selection-options">
+                <button 
+                  type="button" 
+                  className="role-select-card"
+                  onClick={() => setUserRoleType("candidate")}
+                >
+                  <div className="role-card-icon"><UserRound size={26} /></div>
+                  <div className="role-card-info">
+                    <h3>I am a Candidate</h3>
+                    <p>I want to browse remote/global jobs and apply.</p>
+                  </div>
+                </button>
+                <button 
+                  type="button" 
+                  className="role-select-card"
+                  onClick={() => setUserRoleType("employer")}
+                >
+                  <div className="role-card-icon"><BriefcaseBusiness size={26} /></div>
+                  <div className="role-card-info">
+                    <h3>I am a Recruiter / Employer</h3>
+                    <p>I want to post jobs, manage candidates and track analytics.</p>
+                  </div>
+                </button>
+              </div>
+              <button 
+                type="button" 
+                className="role-select-cancel"
+                onClick={onCancel}
+              >
+                Go Back to Browsing
+              </button>
             </div>
-            <div>
-              <h2>{applyTarget ? "Create your account" : "Welcome to Avenir"}</h2>
-              <p>{applyTarget ? "Sign up to continue with this application." : "Sign in or create your account to continue."}</p>
-            </div>
-          </div>
-          <div className="segmented">
-            <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button>
-            <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Register</button>
-          </div>
-          <form className="stack-form" onSubmit={submit}>
-            {mode === "register" && <input name="full_name" placeholder="Full name" required />}
-            {mode === "register" && (
-              <select name="role" defaultValue="candidate">
-                <option value="candidate">Candidate account</option>
-                <option value="employer">Employer account</option>
-              </select>
-            )}
-            <input name="email" type="email" placeholder="Email" required />
-            <input name="password" type="password" placeholder="Password" required />
-            {mode === "register" && (
-              <>
-                <input name="skills" placeholder="Skills, comma separated" />
-                <input name="preferred_location" placeholder="Preferred location" />
-                <select name="preferred_branch" defaultValue="">
-                  <option value="">Choose branch/domain</option>
-                  {branchOptions.map((branch) => (
-                    <option key={branch.value} value={branch.value}>{branch.label}</option>
-                  ))}
-                </select>
-                <input name="preferred_role" list="role-options" placeholder="Preferred role" />
-              </>
-            )}
-            <button type="submit">{mode === "login" ? (applyTarget ? "Continue to apply" : "Login") : "Create Account"}</button>
-          </form>
-          {message && <p className="form-message">{message}</p>}
-          <div className="auth-note">
-            {applyTarget ? "Your selected job will stay ready after signup." : "Browse jobs freely. Sign in only when you want to save or apply."}
-          </div>
+          ) : (
+            <>
+              <button 
+                type="button" 
+                className="role-back-link" 
+                onClick={() => setUserRoleType(null)}
+              >
+                ← Back to choose role
+              </button>
+              <div className="auth-brand-header auth-brand-header-avenir">
+                <div className="auth-brand-mark">
+                  {userRoleType === "candidate" ? <UserRound size={20} /> : <BriefcaseBusiness size={20} />}
+                </div>
+                <div>
+                  <h2>{mode === "login" ? `Sign In` : `Create Account`}</h2>
+                  <p>
+                    {userRoleType === "candidate" 
+                      ? "Access Avenir as a Candidate" 
+                      : "Access Avenir as an Employer / Recruiter"}
+                  </p>
+                </div>
+              </div>
+              <div className="segmented">
+                <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button>
+                <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Register</button>
+              </div>
+              <form className="stack-form" onSubmit={submit}>
+                <input type="hidden" name="role" value={userRoleType} />
+                {mode === "register" && <input name="full_name" placeholder="Full name" required />}
+                <input name="email" type="email" placeholder="Email" required />
+                <input name="password" type="password" placeholder="Password" required />
+                {mode === "register" && userRoleType === "candidate" && (
+                  <>
+                    <input name="skills" placeholder="Skills, comma separated" />
+                    <input name="preferred_location" placeholder="Preferred location" />
+                    <select name="preferred_branch" defaultValue="">
+                      <option value="">Choose branch/domain</option>
+                      {branchOptions.map((branch) => (
+                        <option key={branch.value} value={branch.value}>{branch.label}</option>
+                      ))}
+                    </select>
+                    <input name="preferred_role" list="role-options" placeholder="Preferred role" />
+                  </>
+                )}
+                {mode === "register" && userRoleType === "employer" && (
+                  <>
+                    <input name="skills" placeholder="Hiring focus (e.g. Frontend, VLSI)" />
+                    <input name="current_location" placeholder="Company location" />
+                    <input name="portfolio_url" placeholder="Company website (https://...)" />
+                  </>
+                )}
+                <button type="submit">{mode === "login" ? (applyTarget ? "Continue to apply" : "Login") : "Create Account"}</button>
+              </form>
+              {message && <p className="form-message">{message}</p>}
+              <div className="auth-note">
+                {applyTarget ? "Your selected job will stay ready after signup." : "Browse jobs freely. Sign in only when you want to save or apply."}
+              </div>
+            </>
+          )}
         </div>
 
         {previewJob && (
