@@ -3604,11 +3604,11 @@ h2 {
 .nav-icon-button {
   background: rgba(255, 255, 255, 0.92) !important;
   border-color: rgba(193, 191, 224, 0.44) !important;
-  color: #141021 !important;
+  color: #1f5590 !important;
 }
 
 .nav-icon-button.primary {
-  background: linear-gradient(135deg, #141021, #2a2341) !important;
+  background: #1f5590 !important;
   color: #ffffff !important;
 }
 
@@ -3768,11 +3768,11 @@ h2 {
 .nav-icon-button {
   background: rgba(255, 255, 255, 0.92) !important;
   border-color: rgba(193, 191, 224, 0.44) !important;
-  color: #141021 !important;
+  color: #1f5590 !important;
 }
 
 .nav-icon-button.primary {
-  background: linear-gradient(135deg, #141021, #2a2341) !important;
+  background: #1f5590 !important;
   color: #ffffff !important;
 }
 
@@ -3990,7 +3990,7 @@ h2 {
 
 .public-nav-mark,
 .nav-icon-button.primary {
-  background: #111827 !important;
+  background: #1f5590 !important;
 }
 
 .public-hero-avenir {
@@ -4447,18 +4447,18 @@ button:hover {
 .public-hero-avenir .hero-actions .secondary-button,
 .nav-icon-button {
   background: rgba(255, 255, 255, 0.84) !important;
-  border: 1px solid rgba(193, 191, 224, 0.24) !important;
-  color: #141021 !important;
+  border: 1px solid rgba(31, 85, 144, 0.24) !important;
+  color: #1f5590 !important;
   box-shadow: none;
 }
 
 .nav-icon-button.primary {
-  background: linear-gradient(135deg, #141021, #2a2341) !important;
+  background: #1f5590 !important;
   color: #fff !important;
 }
 
 .nav-icon-button.primary:hover {
-  background: linear-gradient(135deg, #1d172e, #342a4a) !important;
+  background: #153c66 !important;
 }
 
 @keyframes roleCardIn {
@@ -5395,7 +5395,7 @@ body {
   height: 100%;
   justify-content: center;
   min-height: 0 !important;
-  padding: 0 4px 0 12px;
+  padding: 0 24px 0 12px;
   transition: color 0.2s ease;
 }
 

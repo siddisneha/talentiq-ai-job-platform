@@ -32,8 +32,8 @@ export function AuthScreen({ onLogin, onRegister, message, setMessage, publicJob
         </div>
       </section>
       <section className="auth-panel">
-        <BriefcaseBusiness size={36} />
-        <h1>Job Portal</h1>
+        <BriefcaseBusiness size={36} color="#1f5590" />
+        <h1 style={{ color: "#1f5590", fontWeight: "900" }}>Avenir</h1>
         <p>Search jobs, track applications, post openings, and review career insights.</p>
         <div className="segmented">
           <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button>
